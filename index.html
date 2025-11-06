@@ -4,10 +4,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>Magical Snow Globe AR</title>
-  <!-- ✅ Виправлено: перевірено URL без пробілів -->
+
+  <!-- ✅ Виправлено: НЕМАЄ пробілів у кінці URL -->
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.1.5/dist/mindar-image.prod.js"></script>
   <script src="https://aframe.io/releases/1.3.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.1.5/dist/mindar-image-aframe.prod.js"></script>
+
   <style>
     body {
       margin: 0;
@@ -16,16 +18,30 @@
       font-family: Arial, sans-serif;
       background: #000;
       touch-action: none;
-    }
-    .container {
-      width: 100%;
-      height: 100vh;
-      position: relative;
-    }
-    #ar-container {
-      width: 100%;
       height: 100%;
     }
+
+    /* 🔥 Відео з камери — на весь екран */
+    .mindar-video {
+      object-fit: cover !important;
+      width: 100vw !important;
+      height: 100vh !important;
+      position: fixed !important;
+      top: 0 !important;
+      left: 0 !important;
+      z-index: -1 !important;
+    }
+
+    /* Сцена — на весь екран */
+    a-scene {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 1;
+    }
+
     .loading {
       position: absolute;
       top: 50%;
@@ -90,13 +106,15 @@
 <body>
   <div class="error" id="error"></div>
   <button class="music-control" id="musicButton" aria-label="Увімкнути/вимкнути музику">🔇 Увімкнути музику</button>
+  
   <div class="loading" id="loading">
     <h3>🔮 Магічна куля</h3>
     <p><strong>Завантаження...</strong></p>
     <p>Наведіть камеру на маркер</p>
     <p class="small">Дозвольте доступ до камери</p>
   </div>
-  <!-- ✅ Виправлено: додано cursor + raycaster для надійного кліку на 3D-об'єктах -->
+
+  <!-- ✅ cursor + raycaster для кліку -->
   <a-scene
     id="scene"
     embedded
@@ -107,16 +125,15 @@
     device-orientation-permission-ui="enabled: false"
     cursor="rayOrigin: mouse"
     raycaster="objects: .clickable">
-    <!-- Аудіо -->
+
     <a-assets timeout="8000">
-      <!-- ✅ Виправлено: додано loop до <audio> для циклічного відтворення -->
       <audio id="backgroundMusic" src="./fon1.mp3" preload="auto" loop crossorigin></audio>
     </a-assets>
+
     <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
-    <!-- ✅ Залишено loop: true у sound для сумісності -->
     <a-entity id="background-audio" sound="src: #backgroundMusic; volume: 0.5; loop: true"></a-entity>
+
     <a-entity mindar-image-target="targetIndex: 0">
-      <!-- ✅ Куля з класом clickable -->
       <a-sphere
         id="magic-sphere"
         radius="0.4"
@@ -127,7 +144,7 @@
         shader="flat"
         class="clickable">
       </a-sphere>
-      <!-- Підставка -->
+
       <a-cylinder
         radius="0.45"
         height="0.05"
@@ -135,7 +152,7 @@
         color="#888888"
         opacity="0.8">
       </a-cylinder>
-      <!-- ✅ Текст з look-at і видимістю -->
+
       <a-text
         id="magic-text"
         value="Торкнися кулі!"
@@ -148,18 +165,21 @@
       </a-text>
     </a-entity>
   </a-scene>
+
   <script>
     document.addEventListener('DOMContentLoaded', () => {
       const loading = document.getElementById('loading');
       const errorEl = document.getElementById('error');
       const musicButton = document.getElementById('musicButton');
       const scene = document.getElementById('scene');
+
       let isMusicPlaying = false;
       let audioEntity = null;
       let isRotating = false;
       let snowflakes = [];
       let animationId = null;
       let snowSystem = null;
+
       const texts = [
         "Бажаю удачі!", "Твоя мрія збудеться", "Магія поруч", "Сяй яскравіше",
         "Мрій сміливіше", "Холодна правда", "Гаряче бажання", "Чисті думки",
@@ -167,7 +187,7 @@
         "Чарівна сила", "Віщуй майбутнє", "Святковий настрій"
       ];
       let currentTextIndex = 0;
-      // Показ помилки
+
       function showError(msg) {
         if (errorEl) {
           errorEl.textContent = `❌ ${msg}`;
@@ -175,7 +195,7 @@
         }
         console.error(msg);
       }
-      // Музика
+
       function setupMusicControl() {
         musicButton.addEventListener('click', () => {
           const audioEl = document.getElementById('backgroundMusic');
@@ -202,28 +222,28 @@
           isMusicPlaying = !isMusicPlaying;
         });
       }
-      // ✅ Виправлено: сніжинки з очищенням при повторному targetFound
+
       function createSnowflakes() {
         const target = document.querySelector('a-entity[mindar-image-target="targetIndex: 0"]');
-        if (!target) {
-          console.error('Таргет не знайдено');
-          return;
-        }
-        // ✅ Додано: очищення старих сніжинок
+        if (!target) return;
+
         if (snowSystem) {
           snowSystem.parentNode.removeChild(snowSystem);
           snowflakes = [];
           snowSystem = null;
         }
+
         snowSystem = document.createElement('a-entity');
         snowSystem.setAttribute('position', '0 0.5 0');
         target.appendChild(snowSystem);
+
         for (let i = 0; i < 30; i++) {
           const flake = document.createElement('a-sphere');
           const size = 0.008 + Math.random() * 0.015;
           const x = (Math.random() - 0.5) * 0.7;
           const y = (Math.random() - 0.5) * 0.7;
           const z = (Math.random() - 0.5) * 0.7;
+
           flake.setAttribute('radius', size);
           flake.setAttribute('color', 'white');
           flake.setAttribute('opacity', 0.7);
@@ -232,32 +252,42 @@
           flake.dataset.angle = (Math.random() * Math.PI * 2).toString();
           flake.dataset.initialX = x.toString();
           flake.dataset.initialZ = z.toString();
+
           snowSystem.appendChild(flake);
           snowflakes.push(flake);
         }
       }
-      // ✅ Анімація сніжинок (центр кулі правильний: dy = newY, бо newY — відносно центру)
+
       function animateSnow(timestamp) {
         if (snowflakes.length === 0 || document.hidden) {
           animationId = requestAnimationFrame(animateSnow);
           return;
         }
+
         const time = timestamp * 0.001;
         const maxRadius = 0.38;
+
         for (let i = 0; i < snowflakes.length; i++) {
           const flake = snowflakes[i];
           const speed = parseFloat(flake.dataset.speed);
           const angle = parseFloat(flake.dataset.angle);
-          const [currX, currY, currZ] = flake.getAttribute('position').split(' ').map(parseFloat);
+
+          // ✅ Безпечне отримання позиції як об'єкта
+          const pos = flake.getAttribute('position');
+          const currX = pos.x;
+          const currY = pos.y;
+          const currZ = pos.z;
+
           let newY = currY - 0.008 * speed;
           if (newY < -0.35) newY = 0.35;
+
           const initialX = parseFloat(flake.dataset.initialX);
           const initialZ = parseFloat(flake.dataset.initialZ);
           const swingX = Math.sin(time * speed + angle) * 0.012;
           const swingZ = Math.cos(time * speed * 0.8 + angle) * 0.012;
           let newX = initialX + swingX;
           let newZ = initialZ + swingZ;
-          // ✅ Виправлено: центр кулі в (0, 0, 0) відносно snowSystem, тому dy = newY (без -0.5)
+
           const dx = newX;
           const dy = newY;
           const dz = newZ;
@@ -268,6 +298,7 @@
             newZ = dz * scale;
             newY = dy * scale;
           }
+
           flake.setAttribute('position', `${newX} ${newY} ${newZ}`);
           flake.setAttribute('rotation',
             `${time * 20 * speed} ${time * 30 * speed} ${time * 25 * speed}`
@@ -276,9 +307,10 @@
           flake.setAttribute('opacity', (0.5 * flicker).toFixed(2));
           flake.dataset.angle = (angle + 0.01).toString();
         }
+
         animationId = requestAnimationFrame(animateSnow);
       }
-      // ✅ Надійний клік з raycaster + direct listeners
+
       function setupClickHandler() {
         const sphere = document.getElementById('magic-sphere');
         const text = document.getElementById('magic-text');
@@ -286,9 +318,11 @@
           setTimeout(setupClickHandler, 500);
           return;
         }
+
         const handleClick = () => {
           if (isRotating) return;
           isRotating = true;
+
           text.setAttribute('look-at', null);
           text.setAttribute('animation__rotate', {
             property: 'rotation',
@@ -296,6 +330,7 @@
             dur: 800,
             easing: 'easeInOutQuad'
           });
+
           setTimeout(() => {
             currentTextIndex = (currentTextIndex + 1) % texts.length;
             text.setAttribute('value', texts[currentTextIndex]);
@@ -303,24 +338,26 @@
             isRotating = false;
           }, 800);
         };
+
         sphere.addEventListener('click', handleClick);
         sphere.addEventListener('touchstart', (e) => {
           e.preventDefault();
           handleClick();
         });
       }
-      // Перевірки середовища
+
+      // Перевірки
       if (!navigator.mediaDevices?.getUserMedia) {
         showError('Камера не підтримується. Спробуйте Chrome або Safari.');
       }
       if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
         showError('Потрібен HTTPS (наприклад, GitHub Pages).');
       }
-      // ✅ Головна ініціалізація
       if (!scene) {
         showError('Сцена не завантажена');
         return;
       }
+
       scene.addEventListener('loaded', () => {
         console.log('✅ AR готовий');
         setTimeout(() => {
@@ -328,15 +365,18 @@
             loading.style.display = 'none';
           }
         }, 2000);
+
         setupMusicControl();
+
         scene.addEventListener('targetFound', () => {
           console.log('✅ Маркер знайдено');
           if (loading.style.display !== 'none') loading.style.display = 'none';
-          createSnowflakes(); // ✅ Тепер з очищенням
+          createSnowflakes();
           if (animationId === null) {
             animationId = requestAnimationFrame(animateSnow);
           }
         });
+
         scene.addEventListener('targetLost', () => {
           console.log('❌ Маркер втрачено');
           if (animationId !== null) {
@@ -344,8 +384,10 @@
             animationId = null;
           }
         });
+
         setTimeout(setupClickHandler, 1200);
       });
+
       scene.addEventListener('error', (e) => {
         showError('AR помилка: ' + (e.detail?.message || 'невідома'));
       });
