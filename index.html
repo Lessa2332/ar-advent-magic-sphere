@@ -223,7 +223,6 @@ let cam;
 
 async function startCamera() {
   try {
-    // Створюємо камеру тільки після перевірки доступності
     if (cameraUtils) {
       cam = new cameraUtils(video, {
         onFrame: async () => {
@@ -235,7 +234,6 @@ async function startCamera() {
         height: 480
       });
       await cam.start();
-      video.style.display = 'block';
     } else {
       throw new Error('Camera utils not available');
     }
