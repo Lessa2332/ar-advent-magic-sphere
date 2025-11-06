@@ -7,7 +7,7 @@
 <!-- Mediapipe Pose & Camera -->
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
-<!-- Three.js — ФІКС: оновлено до 0.181.0 -->
+<!-- Three.js — оновлено до 0.181.0 -->
 <script src="https://cdn.jsdelivr.net/npm/three@0.181.0/build/three.min.js"></script>
 <!-- html2canvas -->
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
@@ -30,7 +30,8 @@
     width:100%; height:100%;
     object-fit:cover;
     transform: scaleX(-1);
-    display:none;  /* ФІКС: приховуємо спочатку, показуємо після старту */
+    display:none;
+    z-index: 0;  /* Фікс: шари */
   }
   canvas#three-canvas{
     position:absolute;
@@ -38,13 +39,14 @@
     width:100%; height:100%;
     display:block;
     transform: scaleX(-1);
+    z-index: 1;  /* Над відео */
   }
   canvas#snow-canvas{
     position:absolute;
     top:0; left:0;
     width:100%; height:100%;
     pointer-events:none;
-    z-index:6;
+    z-index:2;  /* Над three */
     mix-blend-mode:screen;
   }
   .ui{
@@ -121,10 +123,17 @@ if (typeof THREE === 'undefined') {
 const video = document.getElementById('camera');
 const threeCanvas = document.getElementById('three-canvas');
 const snowCanvas = document.getElementById('snow-canvas');
-threeCanvas.width = window.innerWidth;
-threeCanvas.height = window.innerHeight;
-snowCanvas.width = window.innerWidth;
-snowCanvas.height = window.innerHeight;
+function resize() {
+  threeCanvas.width = window.innerWidth;
+  threeCanvas.height = window.innerHeight;
+  snowCanvas.width = window.innerWidth;
+  snowCanvas.height = window.innerHeight;
+  camera3.aspect = window.innerWidth / window.innerHeight;
+  camera3.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+}
+resize();  // Початковий
+window.addEventListener('resize', resize);  // Фікс: ресайз
 const scene = new THREE.Scene();
 const camera3 = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.01, 10);
 camera3.position.z = 1;
@@ -137,29 +146,53 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(window.devicePixelRatio || 1);
 const hemi = new THREE.HemisphereLight(0xffffff, 0x444444, 0.9);
 scene.add(hemi);
-// Завантаження текстури шкарпетки — ФІКС: fallback якщо не завантажиться
+// Завантаження текстури — ФІКС: правильний fallback
 let texLoader = new THREE.TextureLoader();
 let currentDesign = 0;
 const designsCount = sockPNGs.length;
+const fallbackColors = [0xff6b6b, 0x4ecdc4, 0xffeb3b];  // По дизайну
 let sockMaterial = new THREE.MeshBasicMaterial({
-  map: texLoader.load(sockPNGs[0], undefined, undefined, function(err) {
-    console.error('Could not load texture:', sockPNGs[0], err);
-    // Fallback: солідний колір
-    this.color.setHex(0xff6b6b);  // Рожевий
-  }),
   transparent: true,
   side: THREE.DoubleSide,
   depthTest: true
 });
+function loadDesign(idx, isInitial = false) {
+  const png = sockPNGs[idx];
+  texLoader.load(png, (texture) => {
+    if (texture.image) {  // Перевірка завантаження
+      sockGroup.traverse(child => {
+        if (child.isMesh) {
+          child.material.map = texture;
+          child.material.color.setHex(0xffffff);  // Reset колір
+          child.material.needsUpdate = true;
+        }
+      });
+    } else {
+      applyFallback(idx);
+    }
+  }, undefined, (err) => {
+    console.error('Failed to load:', png, err);
+    applyFallback(idx);
+  });
+}
+function applyFallback(idx) {
+  const color = fallbackColors[idx % fallbackColors.length];
+  sockGroup.traverse(child => {
+    if (child.isMesh) {
+      child.material.map = null;
+      child.material.color.setHex(color);
+      child.material.needsUpdate = true;
+    }
+  });
+}
+loadDesign(0, true);  // Ініціал
 // Створення 3D шкарпетки
 let sockGroup = new THREE.Group();
-// Гомілка - циліндр
 const leg = new THREE.Mesh(
   new THREE.CylinderGeometry(0.095, 0.11, 0.32, 16),
   sockMaterial
 );
 leg.position.y = 0.18;
-// Носок - півкуля
 const toe = new THREE.Mesh(
   new THREE.SphereGeometry(0.1, 12, 12, 0, Math.PI * 2, 0, Math.PI / 2),
   sockMaterial
@@ -167,15 +200,15 @@ const toe = new THREE.Mesh(
 toe.position.y = -0.02;
 toe.rotation.x = Math.PI;
 sockGroup.add(leg, toe);
-sockGroup.scale.x = -1; // дзеркальне відображення
+sockGroup.scale.x = -1;
 scene.add(sockGroup);
-// Конвертація координат Mediapipe → Three.js
+// Конвертація координат
 function mpToThree(x, y) {
   const nx = (x - 0.5) * 2;
   const ny = -(y - 0.5) * 2;
   return { x: nx * (window.innerWidth / window.innerHeight), y: ny };
 }
-// Mediapipe Pose налаштування
+// Mediapipe
 const pose = new Pose.Pose({
   locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`
 });
@@ -186,7 +219,7 @@ pose.setOptions({
   minTrackingConfidence: 0.5
 });
 pose.onResults(onPoseResults);
-// Камера — ФІКС: показуємо відео після старту
+// Камера
 const cameraUtils = window.Camera;
 let cam;
 async function startCamera() {
@@ -202,9 +235,8 @@ async function startCamera() {
         height: 480
       });
       await cam.start();
-      // ФІКС: Показати відео як фон
       video.style.display = 'block';
-      video.style.objectFit = 'cover';  // Для мобільних
+      video.style.objectFit = 'cover';
     } else {
       throw new Error('Camera utils not available');
     }
@@ -215,20 +247,16 @@ async function startCamera() {
 }
 function onPoseResults(results) {
   if (!results.poseLandmarks) {
-    renderer.render(scene, camera3);
-    return;
+    return;  // Фікс: не рендерити тут, тільки в лупі
   }
   const L = results.poseLandmarks;
+  const leftAnkle = L[27];
+  const rightAnkle = L[28];
+  const leftToe = L[31];
+  const rightToe = L[32];
  
-  // ФІКС: Правильні індекси лендмарків
-  const leftAnkle = L[27];   // left ankle
-  const rightAnkle = L[28];  // right ankle
-  const leftToe = L[31];     // left foot index (toe)
-  const rightToe = L[32];    // right foot index (toe)
-  
   let ankle, toePt;
   if (rightAnkle && leftAnkle) {
-    // Вибираємо нижчу ногу (більше y — нижче на екрані)
     if (rightAnkle.y > leftAnkle.y) {
       ankle = rightAnkle;
       toePt = rightToe;
@@ -240,7 +268,7 @@ function onPoseResults(results) {
     ankle = rightAnkle || leftAnkle;
     toePt = rightToe || leftToe;
   }
-  
+ 
   if (ankle && toePt) {
     const pAn = mpToThree(ankle.x, ankle.y);
     const pTo = mpToThree(toePt.x, toePt.y);
@@ -252,28 +280,11 @@ function onPoseResults(results) {
     const scaleFactor = THREE.MathUtils.clamp(0.6 + dist * 1.2, 0.6, 1.6);
     sockGroup.scale.set(scaleFactor, scaleFactor, 1);
   }
-  renderer.render(scene, camera3);
 }
-// Обробники кнопок
+// Кнопки
 document.getElementById('changeBtn').addEventListener('click', () => {
   currentDesign = (currentDesign + 1) % designsCount;
-  texLoader.load(sockPNGs[currentDesign], function(texture) {
-    sockGroup.traverse(child => {
-      if (child.isMesh) {
-        child.material.map = texture;
-        child.material.needsUpdate = true;
-      }
-    });
-  }, undefined, function(err) {
-    console.error('Failed to load texture:', sockPNGs[currentDesign], err);
-    // Fallback для нової текстури
-    sockGroup.traverse(child => {
-      if (child.isMesh) {
-        child.material.color.setHex(currentDesign === 0 ? 0xff6b6b : currentDesign === 1 ? 0x4ecdc4 : 0xffeb3b);
-        child.material.map = null;
-      }
-    });
-  });
+  loadDesign(currentDesign);  // Використовуємо уніфіковану функцію
 });
 let flipped = true;
 document.getElementById('flipBtn').addEventListener('click', () => {
@@ -282,7 +293,6 @@ document.getElementById('flipBtn').addEventListener('click', () => {
   video.style.transform = flipped ? 'scaleX(-1)' : 'scaleX(1)';
 });
 document.getElementById('saveBtn').addEventListener('click', async () => {
-  // Flash ефект
   const flash = document.createElement('div');
   flash.style.position = 'fixed';
   flash.style.left = flash.style.top = '0';
@@ -292,7 +302,6 @@ document.getElementById('saveBtn').addEventListener('click', async () => {
   flash.style.zIndex = '9999';
   flash.style.pointerEvents = 'none';
   document.body.appendChild(flash);
- 
   flash.animate([
     { opacity: 0 },
     { opacity: 0.9 },
@@ -301,24 +310,22 @@ document.getElementById('saveBtn').addEventListener('click', async () => {
     duration: 300,
     easing: 'ease-out'
   });
- 
   setTimeout(() => {
     if (flash.parentNode) {
       document.body.removeChild(flash);
     }
   }, 300);
-  // Збереження фото — ФІКС: забезпечуємо видимість відео
   const originalDisplay = video.style.display;
   const originalZIndex = video.style.zIndex;
   video.style.display = 'block';
-  video.style.zIndex = '-1';  // Під оверлеями
-  
+  video.style.zIndex = '0';
+ 
   try {
     const canvas = await html2canvas(document.getElementById('app'), {
       useCORS: true,
       scale: window.devicePixelRatio || 1,
       allowTaint: true,
-      backgroundColor: null  // Зберегти прозорість фону
+      backgroundColor: null
     });
     const link = document.createElement('a');
     link.download = 'my_magic_sock.png';
@@ -328,12 +335,11 @@ document.getElementById('saveBtn').addEventListener('click', async () => {
     console.error('Capture failed', err);
     alert('Screenshot failed — try again or check browser permissions.');
   } finally {
-    // Відновити стан
     video.style.display = originalDisplay;
     video.style.zIndex = originalZIndex;
   }
 });
-// Ефект снігу
+// Сніг
 const sctx = snowCanvas.getContext('2d');
 let particles = [];
 const P_COUNT = Math.round((window.innerWidth / 100) * 6);
@@ -378,13 +384,13 @@ function animate(t) {
   last = t;
   updateSnow(dt);
   drawSnow();
+  renderer.render(scene, camera3);  // Фікс: рендер в лупі
   requestAnimationFrame(animate);
 }
-// Запуск додатку
+// Запуск
 initSnow();
 animate();
 startCamera();
-// Початковий гід
 setTimeout(() => {
   const guide = document.createElement('div');
   guide.style.position = 'absolute';
@@ -400,7 +406,6 @@ setTimeout(() => {
   guide.style.textAlign = 'center';
   guide.innerText = 'Point your foot into the camera view — the magic sock will follow 👣';
   document.body.appendChild(guide);
- 
   setTimeout(() => {
     guide.style.transition = 'opacity 500ms';
     guide.style.opacity = '0';
