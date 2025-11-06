@@ -31,7 +31,7 @@
     object-fit:cover;
     transform: scaleX(-1);
     display:none;
-    z-index: 0;  /* Фікс: шари */
+    z-index: 0; /* Фікс: шари */
   }
   canvas#three-canvas{
     position:absolute;
@@ -39,14 +39,14 @@
     width:100%; height:100%;
     display:block;
     transform: scaleX(-1);
-    z-index: 1;  /* Над відео */
+    z-index: 1; /* Над відео */
   }
   canvas#snow-canvas{
     position:absolute;
     top:0; left:0;
     width:100%; height:100%;
     pointer-events:none;
-    z-index:2;  /* Над three */
+    z-index:2; /* Над three */
     mix-blend-mode:screen;
   }
   .ui{
@@ -119,21 +119,11 @@ if (typeof THREE === 'undefined') {
   alert('Error: Three.js failed to load. Please check your internet connection.');
   throw new Error('THREE is not defined');
 }
-// Three.js setup
+// Three.js setup — ФІКС: спочатку створюємо все необхідне
 const video = document.getElementById('camera');
 const threeCanvas = document.getElementById('three-canvas');
 const snowCanvas = document.getElementById('snow-canvas');
-function resize() {
-  threeCanvas.width = window.innerWidth;
-  threeCanvas.height = window.innerHeight;
-  snowCanvas.width = window.innerWidth;
-  snowCanvas.height = window.innerHeight;
-  camera3.aspect = window.innerWidth / window.innerHeight;
-  camera3.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
-}
-resize();  // Початковий
-window.addEventListener('resize', resize);  // Фікс: ресайз
+
 const scene = new THREE.Scene();
 const camera3 = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.01, 10);
 camera3.position.z = 1;
@@ -146,24 +136,42 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(window.devicePixelRatio || 1);
 const hemi = new THREE.HemisphereLight(0xffffff, 0x444444, 0.9);
 scene.add(hemi);
-// Завантаження текстури — ФІКС: правильний fallback
-let texLoader = new THREE.TextureLoader();
-let currentDesign = 0;
-const designsCount = sockPNGs.length;
-const fallbackColors = [0xff6b6b, 0x4ecdc4, 0xffeb3b];  // По дизайну
+
+// Створення 3D шкарпетки — ФІКС: перед loadDesign
+let sockGroup = new THREE.Group();
+const fallbackColors = [0xff6b6b, 0x4ecdc4, 0xffeb3b]; // По дизайну
 let sockMaterial = new THREE.MeshBasicMaterial({
   transparent: true,
   side: THREE.DoubleSide,
   depthTest: true
 });
-function loadDesign(idx, isInitial = false) {
+const leg = new THREE.Mesh(
+  new THREE.CylinderGeometry(0.095, 0.11, 0.32, 16),
+  sockMaterial
+);
+leg.position.y = 0.18;
+const toe = new THREE.Mesh(
+  new THREE.SphereGeometry(0.1, 12, 12, 0, Math.PI * 2, 0, Math.PI / 2),
+  sockMaterial
+);
+toe.position.y = -0.02;
+toe.rotation.x = Math.PI;
+sockGroup.add(leg, toe);
+sockGroup.scale.x = -1;
+scene.add(sockGroup);
+
+// Завантаження текстури — ФІКС: тепер sockGroup існує
+let texLoader = new THREE.TextureLoader();
+let currentDesign = 0;
+const designsCount = sockPNGs.length;
+function loadDesign(idx) {
   const png = sockPNGs[idx];
   texLoader.load(png, (texture) => {
-    if (texture.image) {  // Перевірка завантаження
+    if (texture.image) { // Перевірка завантаження
       sockGroup.traverse(child => {
         if (child.isMesh) {
           child.material.map = texture;
-          child.material.color.setHex(0xffffff);  // Reset колір
+          child.material.color.setHex(0xffffff); // Reset колір
           child.material.needsUpdate = true;
         }
       });
@@ -185,29 +193,34 @@ function applyFallback(idx) {
     }
   });
 }
-loadDesign(0, true);  // Ініціал
-// Створення 3D шкарпетки
-let sockGroup = new THREE.Group();
-const leg = new THREE.Mesh(
-  new THREE.CylinderGeometry(0.095, 0.11, 0.32, 16),
-  sockMaterial
-);
-leg.position.y = 0.18;
-const toe = new THREE.Mesh(
-  new THREE.SphereGeometry(0.1, 12, 12, 0, Math.PI * 2, 0, Math.PI / 2),
-  sockMaterial
-);
-toe.position.y = -0.02;
-toe.rotation.x = Math.PI;
-sockGroup.add(leg, toe);
-sockGroup.scale.x = -1;
-scene.add(sockGroup);
+loadDesign(0); // Ініціал
+
+// Resize — ФІКС: після створення camera3/renderer
+function resize() {
+  const width = window.innerWidth;
+  const height = window.innerHeight;
+  threeCanvas.width = width;
+  threeCanvas.height = height;
+  threeCanvas.style.width = `${width}px`;
+  threeCanvas.style.height = `${height}px`;
+  snowCanvas.width = width;
+  snowCanvas.height = height;
+  snowCanvas.style.width = `${width}px`;
+  snowCanvas.style.height = `${height}px`;
+  camera3.aspect = width / height;
+  camera3.updateProjectionMatrix();
+  renderer.setSize(width, height);
+}
+resize(); // Початковий
+window.addEventListener('resize', resize);
+
 // Конвертація координат
 function mpToThree(x, y) {
   const nx = (x - 0.5) * 2;
   const ny = -(y - 0.5) * 2;
   return { x: nx * (window.innerWidth / window.innerHeight), y: ny };
 }
+
 // Mediapipe
 const pose = new Pose.Pose({
   locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`
@@ -219,6 +232,7 @@ pose.setOptions({
   minTrackingConfidence: 0.5
 });
 pose.onResults(onPoseResults);
+
 // Камера
 const cameraUtils = window.Camera;
 let cam;
@@ -245,16 +259,16 @@ async function startCamera() {
     alert('Camera access is required. Please allow camera and reload the page.');
   }
 }
+
 function onPoseResults(results) {
   if (!results.poseLandmarks) {
-    return;  // Фікс: не рендерити тут, тільки в лупі
+    return; // Фікс: не рендерити тут, тільки в лупі
   }
   const L = results.poseLandmarks;
   const leftAnkle = L[27];
   const rightAnkle = L[28];
   const leftToe = L[31];
   const rightToe = L[32];
- 
   let ankle, toePt;
   if (rightAnkle && leftAnkle) {
     if (rightAnkle.y > leftAnkle.y) {
@@ -268,7 +282,6 @@ function onPoseResults(results) {
     ankle = rightAnkle || leftAnkle;
     toePt = rightToe || leftToe;
   }
- 
   if (ankle && toePt) {
     const pAn = mpToThree(ankle.x, ankle.y);
     const pTo = mpToThree(toePt.x, toePt.y);
@@ -281,10 +294,11 @@ function onPoseResults(results) {
     sockGroup.scale.set(scaleFactor, scaleFactor, 1);
   }
 }
+
 // Кнопки
 document.getElementById('changeBtn').addEventListener('click', () => {
   currentDesign = (currentDesign + 1) % designsCount;
-  loadDesign(currentDesign);  // Використовуємо уніфіковану функцію
+  loadDesign(currentDesign); // Використовуємо уніфіковану функцію
 });
 let flipped = true;
 document.getElementById('flipBtn').addEventListener('click', () => {
@@ -319,7 +333,6 @@ document.getElementById('saveBtn').addEventListener('click', async () => {
   const originalZIndex = video.style.zIndex;
   video.style.display = 'block';
   video.style.zIndex = '0';
- 
   try {
     const canvas = await html2canvas(document.getElementById('app'), {
       useCORS: true,
@@ -339,6 +352,7 @@ document.getElementById('saveBtn').addEventListener('click', async () => {
     video.style.zIndex = originalZIndex;
   }
 });
+
 // Сніг
 const sctx = snowCanvas.getContext('2d');
 let particles = [];
@@ -384,9 +398,10 @@ function animate(t) {
   last = t;
   updateSnow(dt);
   drawSnow();
-  renderer.render(scene, camera3);  // Фікс: рендер в лупі
+  renderer.render(scene, camera3); // Фікс: рендер в лупі
   requestAnimationFrame(animate);
 }
+
 // Запуск
 initSnow();
 animate();
