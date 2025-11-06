@@ -1,312 +1,279 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Magic AR Orb 🎄</title>
-    <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;700&family=Playfair+Display:wght@400;700&display=swap" rel="stylesheet">
+    <meta charset="utf-8">
+    <title>Magical Snow Globe AR</title>
+    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.3/dist/mindar-image.prod.js"></script>
+    <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.3/dist/mindar-image-aframe.prod.js"></script>
     <style>
-        body { margin: 0; overflow: hidden; background: #000; }
-        canvas { display: block; }
-        #info { 
-            position: absolute; top: 10px; left: 10px; color: #fff; z-index: 100; 
-            background: rgba(0,0,0,0.5); padding: 10px; border-radius: 5px; font-size: 18px; 
-            text-align: center; max-width: 300px; font-family: 'Caveat', cursive;
+        body { margin: 0; padding: 0; }
+        .container { width: 100%; height: 100vh; }
+        #ar-container { width: 100%; height: 100%; }
+        .loading { 
+            position: absolute; 
+            top: 50%; 
+            left: 50%; 
+            transform: translate(-50%, -50%); 
+            z-index: 1000; 
+            color: white; 
+            background: rgba(0,0,0,0.7); 
+            padding: 20px; 
+            border-radius: 10px;
         }
-        #today { color: #ffd700; font-weight: bold; }
-        #lang-toggle { 
-            background: rgba(255,255,255,0.2); border: 1px solid #ffd700; color: #ffd700; 
-            padding: 5px 10px; border-radius: 3px; cursor: pointer; margin-top: 5px; 
-            font-size: 14px; 
-        }
-        #lang-toggle:hover { background: rgba(255,215,0,0.2); }
     </style>
 </head>
 <body>
-    <div id="info">
-        <div id="title">Magic AR Orb 🎄</div>
-        <div id="today-line">Today: Day <span id="today">1</span></div>
-        <div id="instruction">Point camera at marker and tap the orb!</div>
-        <button id="lang-toggle">🇺🇦 UA / EN</button>
+    <div class="loading" id="loading">Завантаження магічної кулі... Наведіть камеру на маркер</div>
+    
+    <div class="container">
+        <div id="ar-container">
+            <a-scene 
+                mindar-image="imageTargetSrc: ./card.mind; autoStart: true;"
+                color-space="sRGB"
+                embedded 
+                renderer="colorManagement: true, physicallyCorrectLights"
+                vr-mode-ui="enabled: false"
+                device-orientation-permission-ui="enabled: false">
+                
+                <a-camera active="true" position="0 0 0" look-controls="enabled: false"></a-camera>
+
+                <a-entity mindar-image-target="targetIndex: 0">
+                    <!-- Зовнішня скляна куля -->
+                    <a-sphere 
+                        id="glass-sphere"
+                        class="clickable"
+                        radius="0.4"
+                        position="0 0.5 0"
+                        color="#e6f7ff"
+                        opacity="0.3"
+                        transparent="true"
+                        shader="standard"
+                        metalness="0.9"
+                        roughness="0.05"
+                        mindar-raycastable>
+                    </a-sphere>
+
+                    <!-- Сніг ВСЕРЕДИНІ кулі -->
+                    <a-entity id="snow-container" position="0 0.5 0">
+                        <a-entity id="snow-particles"></a-entity>
+                    </a-entity>
+
+                    <!-- Снігова основа -->
+                    <a-circle 
+                        id="snow-base"
+                        position="0 0.1 0"
+                        radius="0.35"
+                        color="#ffffff"
+                        opacity="0.8"
+                        rotation="-90 0 0">
+                    </a-circle>
+
+                    <!-- Декоративний ободок -->
+                    <a-torus 
+                        id="glass-ring"
+                        radius="0.4"
+                        arc="360"
+                        color="#88ccff"
+                        opacity="0.6"
+                        rotation="90 0 0"
+                        transparent="true">
+                    </a-torus>
+
+                    <!-- Текстовий елемент -->
+                    <a-text 
+                        id="text-display"
+                        value="Магічний текст 1"
+                        position="0 1.0 0"
+                        align="center"
+                        color="#ffffff"
+                        font="roboto"
+                        width="3"
+                        look-at="[camera]"
+                        billboard="true"
+                        shader="msdf"
+                        opacity="0.9">
+                    </a-text>
+                </a-entity>
+            </a-scene>
+        </div>
     </div>
-    <!-- Three.js r150 — сумісна з MindAR v1.2.5 -->
-    <script src="https://cdn.jsdelivr.net/npm/three@0.150.1/build/three.min.js"></script>
-    <!-- MindAR — UMD-версії -->
-    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image.prod.umd.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.umd.js"></script>
+
     <script>
-        // Translations (EN primary, UA secondary)
-        const translations = {
-            en: {
-                title: 'Magic AR Orb 🎄',
-                todayLine: 'Today: Day',
-                todayWait: '0 (wait for December!)',
-                instruction: 'Point camera at marker and tap the orb!',
-                dayLocked: 'Day {day} hasn\'t come yet! 🔒',
-                dayOpened: 'Day {day} already opened! 🎄',
-                orbRotating: 'Orb is spinning... Select a day!',
-                dayUnlocked: 'Day {day} unlocked! "{task}" 🎉',
-                error: 'Error: Check marker and HTTPS. Details in console.'
-            },
-            uk: {
-                title: 'Магічна AR куля 🎄',
-                todayLine: 'Сьогодні: День',
-                todayWait: '0 (чекай грудня!)',
-                instruction: 'Наведи камеру на маркер і торкнися кулі!',
-                dayLocked: 'День {day} ще не настав! 🔒',
-                dayOpened: 'День {day} вже відкрито! 🎄',
-                orbRotating: 'Куля обертається... Вибери день!',
-                dayUnlocked: 'День {day} відкрито! "{task}" 🎉',
-                error: 'Помилка: Перевірте маркер і HTTPS. Деталі в консолі.'
-            }
-        };
+        // Масив з 15 текстами
+        const textOptions = [
+            "🎯 Перший варіант",
+            "✨ Другий текст", 
+            "🔮 Магічне слово",
+            "🌟 Зоряне послання",
+            "💫 Обертальна сила",
+            "❄️ Снігове заклинання",
+            "🔥 Вогняна енергія",
+            "💧 Водяний потік",
+            "🌪️ Вітряна буря", 
+            "🌙 Місячне світло",
+            "☀️ Сонячний промінь",
+            "⚡ Електрична іскра",
+            "🪄 Чарівна паличка",
+            "🔮 Кришталева куля",
+            "🎄 Новорічне диво"
+        ];
 
-        // Tasks (EN primary, UA in object)
-        const tasks = {
-            en: [
-                "Light a candle 🕯️", "Write to Santa 📝", "Photo with tree 📸", "Sing a song 🎵", "Hug someone 🤗",
-                "Compliment a stranger 💬", "Sticker smile 🎀", "Bird feeder 🐦", "Help neighbor 🛒", "Anonymous gift 🎁",
-                "Window drawing ❄️", "Winter poem 📖", "Tree ornament ✂️", "New tradition 🌟", "AR video 🎥", "Dance! 💃",
-                "Joke 😂", "Filter selfie 😎", "5 red things ❤️", "Mini-disco 🕺", "3 gratitudes 🙏", "Cocoa ☕",
-                "Christmas movie 🎬", "Gifts under tree 🎄", "Merry Christmas! 🎉"
-            ],
-            uk: [
-                "Запали свічку 🕯️", "Напиши листа Санті 📝", "Зроби фото з ялинкою 📸",
-                "Співай пісню 🎵", "Обійми когось 🤗", "Подаруй комплімент 💬",
-                "Наклей посмішку 🎀", "Годівничка для птахів 🐦", "Допоможи сусіду 🛒",
-                "Анонімний подарунок 🎁", "Малюнок на вікні ❄️", "Вірш про зиму 📖",
-                "Ялинкова прикраса ✂️", "Нова традиція 🌟", "AR-відео 🎥", "Танцюй! 💃",
-                "Анекдот 😂", "Селфі з фільтром 😎", "5 червоних речей ❤️", "Міні-диско 🕺",
-                "3 речі вдячності 🙏", "Какао ☕", "Різдвяний фільм 🎬", "Подарунки під ялинку 🎄",
-                "З Різдвом! 🎉"
-            ]
-        };
-
-        let currentLang = navigator.language.startsWith('uk') ? 'uk' : 'en';
+        let currentRotation = 0;
         let isRotating = false;
-        let hasOpenedToday = false;
+        let currentTextIndex = 0;
+        let snowParticles = [];
 
-        // Update UI
-        function updateUI() {
-            const t = translations[currentLang];
-            document.getElementById('title').innerText = t.title;
-            document.getElementById('today-line').innerText = t.todayLine;
-            document.getElementById('instruction').innerText = t.instruction;
-            document.getElementById('lang-toggle').innerText = currentLang === 'en' ? '🇺🇦 UA' : 'EN';
+        // Функція для створення сніжинок
+        function createSnowParticles(count) {
+            const snowContainer = document.querySelector('#snow-particles');
+            snowContainer.innerHTML = '';
+            snowParticles = [];
+
+            for (let i = 0; i < count; i++) {
+                const snowflake = document.createElement('a-sphere');
+                const size = 0.008 + Math.random() * 0.015;
+                const radius = Math.random() * 0.35;
+                const theta = Math.random() * Math.PI * 2;
+                const phi = Math.random() * Math.PI;
+                
+                const x = radius * Math.sin(phi) * Math.cos(theta);
+                const y = radius * Math.cos(phi);
+                const z = radius * Math.sin(phi) * Math.sin(theta);
+                
+                snowflake.setAttribute('radius', size);
+                snowflake.setAttribute('color', '#ffffff');
+                snowflake.setAttribute('opacity', 0.7 + Math.random() * 0.3);
+                snowflake.setAttribute('position', { x: x, y: y, z: z });
+                
+                snowflake.setAttribute('data-speed', 0.3 + Math.random() * 0.4);
+                snowflake.setAttribute('data-original-y', y);
+                snowflake.setAttribute('data-time-offset', Math.random() * Math.PI * 2);
+                
+                snowContainer.appendChild(snowflake);
+                snowParticles.push(snowflake);
+            }
         }
 
-        // Toggle lang (reload for simplicity)
-        document.getElementById('lang-toggle').addEventListener('click', () => {
-            currentLang = currentLang === 'en' ? 'uk' : 'en';
-            updateUI();
-            location.reload();
+        // Анімація снігу
+        function animateSnow(intensity = 1) {
+            const currentTime = Date.now() * 0.001;
+            
+            snowParticles.forEach((snowflake) => {
+                const speed = parseFloat(snowflake.getAttribute('data-speed')) * intensity;
+                const originalY = parseFloat(snowflake.getAttribute('data-original-y'));
+                const timeOffset = parseFloat(snowflake.getAttribute('data-time-offset'));
+                
+                const pos = snowflake.getAttribute('position');
+                let newY = originalY - (currentTime * 0.1 * speed);
+                
+                if (newY < -0.35) {
+                    newY = 0.35;
+                    snowflake.setAttribute('data-original-y', newY);
+                }
+                
+                const swingX = Math.sin(currentTime * speed + timeOffset) * 0.05;
+                const swingZ = Math.cos(currentTime * speed * 0.7 + timeOffset) * 0.05;
+                
+                snowflake.setAttribute('position', {
+                    x: pos.x + swingX * intensity,
+                    y: newY,
+                    z: pos.z + swingZ * intensity
+                });
+                
+                snowflake.setAttribute('rotation', {
+                    x: currentTime * 50 * speed,
+                    y: currentTime * 30 * speed,
+                    z: currentTime * 40 * speed
+                });
+                
+                const flicker = 0.6 + Math.sin(currentTime * 5 + timeOffset) * 0.4;
+                snowflake.setAttribute('opacity', 0.5 * flicker);
+            });
+        }
+
+        // Ініціалізація
+        document.addEventListener('DOMContentLoaded', () => {
+            const scene = document.querySelector('a-scene');
+            const sphere = document.querySelector('#glass-sphere');
+            const textDisplay = document.querySelector('#text-display');
+            const snowContainer = document.querySelector('#snow-container');
+            const glassRing = document.querySelector('#glass-ring');
+            const loading = document.querySelector('#loading');
+
+            // Приховати завантаження коли сцена готова
+            scene.addEventListener('loaded', () => {
+                setTimeout(() => {
+                    loading.style.display = 'none';
+                }, 2000);
+            });
+
+            createSnowParticles(80);
+
+            // Обробка кліку по кулі
+            sphere.addEventListener('click', () => {
+                if (isRotating) return;
+                
+                isRotating = true;
+                currentRotation += 360;
+                
+                // Інтенсифікація снігопаду
+                let snowIntensity = 3;
+                const intensityInterval = setInterval(() => {
+                    snowIntensity -= 0.1;
+                    if (snowIntensity < 1) clearInterval(intensityInterval);
+                }, 150);
+
+                // Анімація обертання тексту
+                textDisplay.setAttribute('animation', {
+                    property: 'rotation',
+                    to: `0 ${currentRotation} 0`,
+                    dur: 1000,
+                    easing: 'easeOutCubic'
+                });
+
+                // Анімація обертання снігової системи
+                snowContainer.setAttribute('animation', {
+                    property: 'rotation',
+                    to: `0 ${currentRotation * 0.5} 0`,
+                    dur: 1200,
+                    easing: 'easeOutQuad'
+                });
+
+                // Зміна тексту після обертання
+                setTimeout(() => {
+                    let newIndex;
+                    do {
+                        newIndex = Math.floor(Math.random() * textOptions.length);
+                    } while (newIndex === currentTextIndex && textOptions.length > 1);
+                    
+                    currentTextIndex = newIndex;
+                    textDisplay.setAttribute('value', textOptions[newIndex]);
+                    isRotating = false;
+                }, 1000);
+            });
+
+            // Постійна анімація снігу
+            setInterval(() => {
+                const baseIntensity = isRotating ? 2.5 : 1;
+                animateSnow(baseIntensity);
+            }, 50);
+
+            // Додаткові ефекти
+            setInterval(() => {
+                // Мерехтіння скляної кулі
+                const glow = 0.2 + Math.sin(Date.now() * 0.002) * 0.1;
+                sphere.setAttribute('opacity', 0.25 + glow);
+                
+                // Обертання ободка
+                const rotation = glassRing.getAttribute('rotation');
+                glassRing.setAttribute('rotation', {
+                    x: rotation.x,
+                    y: rotation.y + 0.3,
+                    z: rotation.z
+                });
+            }, 100);
         });
-
-        (async () => {
-            try {
-                updateUI();
-
-                // Date logic (November 6, 2025 -> unlocked=0)
-                const today = new Date();
-                const currentDay = today.getDate();
-                const currentMonth = today.getMonth() + 1;
-                const adventMonth = 12;
-                const totalDays = 25;
-                let unlockedDays = (currentMonth === adventMonth && currentDay <= totalDays) 
-                    ? currentDay : (currentMonth > adventMonth ? totalDays : 0);
-                // unlockedDays = 5; // For testing
-                document.getElementById('today').innerText = unlockedDays || translations[currentLang].todayWait;
-
-                // MindAR init
-                const mindarThree = new window.MINDAR.IMAGE.MindARThree({
-                    container: document.body,
-                    imageTargetSrc: './card.mind',
-                    maxTrack: 1
-                });
-                const { renderer, scene, camera } = mindarThree;
-
-                // Glass orb
-                const sphere = new THREE.Mesh(
-                    new THREE.SphereGeometry(0.12, 64, 64),
-                    new THREE.MeshPhysicalMaterial({
-                        color: 0xffffff,
-                        transparent: true,
-                        opacity: 0.25,
-                        metalness: 0.95,
-                        roughness: 0.05,
-                        transmission: 0.98,
-                        thickness: 0.1,
-                        clearcoat: 1.0,
-                        clearcoatRoughness: 0.1
-                    })
-                );
-                sphere.position.z = 0.02;
-
-                // Ring container
-                const ring = new THREE.Group();
-                const radius = 0.22;
-                const cards = [];
-                const currentTasks = tasks[currentLang];
-
-                for (let i = 0; i < totalDays; i++) {
-                    const day = i + 1;
-                    const canvas = document.createElement('canvas');
-                    canvas.width = 256;
-                    canvas.height = 128;
-                    const ctx = canvas.getContext('2d');
-
-                    // Background gradient
-                    const gradient = ctx.createLinearGradient(0, 0, 0, 128);
-                    gradient.addColorStop(0, day <= unlockedDays ? '#3a7bd5' : '#666');
-                    gradient.addColorStop(1, day <= unlockedDays ? '#00d2ff' : '#333');
-                    ctx.fillStyle = gradient;
-                    ctx.fillRect(0, 0, 256, 128);
-
-                    // Border
-                    ctx.strokeStyle = day <= unlockedDays ? '#ffd700' : '#888';
-                    ctx.lineWidth = 3;
-                    ctx.strokeRect(2, 2, 252, 124);
-
-                    // Text: Day
-                    ctx.fillStyle = 'white';
-                    ctx.font = 'bold 32px "Playfair Display"';
-                    ctx.textAlign = 'center';
-                    ctx.fillText(currentLang === 'en' ? `Day ${day}` : `День ${day}`, 128, 48);
-
-                    // Task text
-                    ctx.font = '20px "Caveat"';
-                    ctx.fillStyle = day <= unlockedDays ? 'white' : '#ccc';
-                    const taskText = currentTasks[i] || (currentLang === 'en' ? `Task ${day}` : `Завдання ${day}`);
-                    wrapText(ctx, taskText, 240, 20).forEach((line, j) => {
-                        ctx.fillText(line, 128, 86 + j * 25);
-                    });
-
-                    // Icon
-                    ctx.font = 'bold 40px Arial';
-                    ctx.fillText(day <= unlockedDays ? '🎄' : '🔒', 128, 110);
-
-                    const texture = new THREE.CanvasTexture(canvas);
-                    const card = new THREE.Mesh(
-                        new THREE.PlaneGeometry(0.08, 0.04),
-                        new THREE.MeshBasicMaterial({
-                            map: texture,
-                            transparent: true,
-                            opacity: 0.9,
-                            side: THREE.DoubleSide
-                        })
-                    );
-
-                    // Position in spiral ring
-                    const angle = (i / totalDays) * Math.PI * 2;
-                    card.position.set(
-                        Math.cos(angle) * radius,
-                        Math.sin(angle * 2) * 0.1, // Wave
-                        Math.sin(angle) * radius
-                    );
-                    card.lookAt(0, 0, 0);
-                    card.userData = { day, unlocked: day <= unlockedDays };
-                    ring.add(card);
-                    cards.push(card);
-                }
-
-                // Anchor
-                const anchor = mindarThree.addAnchor(0);
-                anchor.group.add(sphere);
-                anchor.group.add(ring);
-
-                // Raycaster for interaction
-                const raycaster = new THREE.Raycaster();
-                const mouse = new THREE.Vector2();
-                window.addEventListener('click', (e) => {
-                    mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
-                    mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
-                    raycaster.setFromCamera(mouse, camera);
-                    const intersects = raycaster.intersectObjects(cards);
-                    const t = translations[currentLang];
-
-                    if (intersects.length > 0) {
-                        const clicked = intersects[0].object;
-                        const day = clicked.userData.day;
-                        if (!clicked.userData.unlocked) {
-                            showMessage(t.dayLocked.replace('{day}', day));
-                            return;
-                        }
-                        if (day === currentDay && !hasOpenedToday) {
-                            openDay(clicked, day);
-                            hasOpenedToday = true;
-                        } else if (day < currentDay) {
-                            showMessage(t.dayOpened.replace('{day}', day));
-                        }
-                    } else {
-                        const sphereHit = raycaster.intersectObject(sphere);
-                        if (sphereHit.length > 0 && !isRotating) {
-                            isRotating = true;
-                            setTimeout(() => { isRotating = false; }, 5000);
-                            showMessage(t.orbRotating);
-                        }
-                    }
-                });
-
-                // Open day animation
-                function openDay(card, day) {
-                    const clone = card.clone();
-                    clone.position.copy(card.position);
-                    scene.add(clone);
-                    let time = 0;
-                    const dur = 1500;
-                    const startY = clone.position.y;
-                    const anim = () => {
-                        time += 16;
-                        const prog = Math.min(time / dur, 1);
-                        const ease = 1 - Math.pow(1 - prog, 3);
-                        clone.scale.setScalar(1 + ease * 2);
-                        clone.position.y = startY - ease * 0.3;
-                        clone.material.opacity = 1 - ease;
-                        if (prog < 1) requestAnimationFrame(anim);
-                        else {
-                            scene.remove(clone);
-                            showMessage(translations[currentLang].dayUnlocked.replace('{day}', day).replace('{task}', currentTasks[day - 1]), 4000);
-                            card.visible = false;
-                        }
-                    };
-                    anim();
-                }
-
-                // Wrap text
-                function wrapText(ctx, text, maxW, fontSize) {
-                    ctx.font = `${fontSize}px "Caveat"`;
-                    const words = text.split(' ');
-                    const lines = [];
-                    let line = '';
-                    words.forEach(w => {
-                        const test = line + w + ' ';
-                        if (ctx.measureText(test).width > maxW) {
-                            lines.push(line.trim());
-                            line = w + ' ';
-                        } else line = test;
-                    });
-                    lines.push(line.trim());
-                    return lines;
-                }
-
-                // Show message
-                function showMessage(text, timeout = 2000) {
-                    const info = document.getElementById('info');
-                    info.innerHTML += `<div style="margin-top:10px;">${text}</div>`;
-                    setTimeout(() => updateUI(), timeout);
-                }
-
-                await mindarThree.start();
-                renderer.setAnimationLoop(() => {
-                    if (isRotating) ring.rotation.y += 0.01;
-                    else ring.rotation.y += 0.005;
-                    renderer.render(scene, camera);
-                });
-            } catch (e) {
-                console.error(e);
-                document.getElementById('info').innerHTML = translations[currentLang].error;
-            }
-        })();
     </script>
 </body>
 </html>
