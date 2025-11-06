@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="description" content="AR-сцена з планетою для дітей">
+    <title>🌍«Світ на долоні » 🎈</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Comic+Neue:wght@700&display=swap" rel="stylesheet">
+
+    <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/aframe-extras@6.1.1/dist/aframe-extras.min.js"></script>
+
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: transparent;
+            font-family: 'Comic Neue', cursive, sans-serif;
+            font-weight: 700;
+        }
+
+        a-scene {
+            width: 100% !important;
+            height: 100% !important;
+            position: fixed;
+            top: 0;
+            left: 0;
+            background: transparent;
+        }
+
+        .arjs-loader {
+            height: 100%;
+            width: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            background: rgba(135, 206, 235, 0.2);
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: #FF4500;
+            font-size: 1.8em;
+            text-align: center;
+            padding: 20px;
+            box-sizing: border-box;
+            font-family: 'Comic Neue', cursive, sans-serif;
+            font-weight: 700;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+
+        .pulse { animation: pulse 1.5s infinite; }
+
+        .controls {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10000;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .sound-btn, .youtube-btn, .play-btn, .next-btn, .exit-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 15px;
+            cursor: pointer;
+            font-family: 'Comic Neue', cursive, sans-serif;
+            font-size: 1em;
+            font-weight: 700;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            text-decoration: none;
+        }
+
+        .sound-btn { background-color: #4CAF50; color: white; }
+        .sound-btn.off { background-color: #f44336; }
+        .youtube-btn { background-color: #FF9800; color: white; }
+        .youtube-btn:hover { background-color: #FFB300; }
+        .play-btn { background-color: #0057B7; color: white; }
+        .play-btn:hover { background-color: #003087; }
+        .next-btn { background-color: #FFD700; color: #0057B7; display: none; }
+        .next-btn:hover { background-color: #FFC300; }
+        .exit-btn { background-color: #ff3333; color: white; display: none; }
+        .exit-btn:hover { background-color: #cc0000; }
+
+        #word-canvas {
+            position: absolute;
+            top: 10%;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10001;
+            display: none;
+            border: 2px solid #0057B7;
+            background: rgba(255, 255, 255, 0.8);
+            max-width: 80%;
+            max-height: 50%;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="arjs-loader" id="loader">
+        <div class="pulse">🌍 Світ на долоні 🎈</div>
+        <div style="margin-top: 20px; font-size: 1.2em;">Наведи камеру на маркер! 😊🎨</div>
+    </div>
+
+    <canvas id="word-canvas"></canvas>
+
+    <a-scene
+        mindar-image="imageTargetSrc: ./my-marker.mind;"
+        vr-mode-ui="enabled: false"
+        device-orientation-permission-ui="enabled: false"
+        loading-screen="enabled: false"
+        embedded
+        renderer="colorManagement: true; physicallyCorrectLights: true;"
+        touch-gestures
+    >
+        <a-assets>
+            <audio id="bg-music" src="./bg-music.mp3" preload="auto" loop></audio>
+            <audio id="success-sound" src="./success.mp3" preload="auto"></audio>
+            <img id="earth-texture" src="./earth.jpg">
+            <img id="peace-dove-img" src="./peace-dove.png">
+        </a-assets>
+
+        <a-camera
+            id="camera"
+            position="0 0 1.5"
+            look-controls="enabled: false"
+        ></a-camera>
+
+        <a-entity mindar-image-target="targetIndex: 0">
+            <a-sphere
+                id="hand-planet"
+                position="0 0 -0.5"
+                radius="0.4"
+                src="#earth-texture"
+                visible="false"
+                material="opacity: 1; transparent: false"
+            >
+                <a-image
+                    id="peace-dove-entity"
+                    src="#peace-dove-img"
+                    position="0 0.5 0.5"
+                    scale="0.3 0.3 0.3"
+                    visible="false"
+                    animation="property: rotation; to: 0 360 0; dur: 4000; easing: linear; loop: true"
+                ></a-image>
+                <a-animation
+                    attribute="rotation"
+                    to="0 360 0"
+                    dur="5000"
+                    repeat="indefinite"
+                ></a-animation>
+            </a-sphere>
+        </a-entity>
+    </a-scene>
+
+    <div class="controls">
+        <button id="sound-btn" class="sound-btn">Увімкнути звук</button>
+        <button id="play-btn" class="play-btn">Грати</button>
+        <button id="next-btn" class="next-btn">Наступне</button>
+        <button id="exit-btn" class="exit-btn">Вийти з гри</button>
+        <a href="https://www.youtube.com/playlist?list=PL6UDFwT9TzFw5K8Tzu_OgsDz7vV3N9eY-" target="_blank" class="youtube-btn">YouTube SmartLessa</a>
+    </div>
+
+    <script>
+        function fixHeight() {
+            document.body.style.height = window.innerHeight + 'px';
+        }
+        fixHeight();
+        window.addEventListener('resize', fixHeight);
+
+        function adjustCanvasSize() {
+            const canvas = document.getElementById('word-canvas');
+            canvas.width = window.innerWidth * 0.8;
+            canvas.height = window.innerHeight * 0.5;
+        }
+        window.addEventListener('resize', adjustCanvasSize);
+        adjustCanvasSize();
+
+        const loader = document.querySelector('#loader');
+        const targetEntity = document.querySelector('[mindar-image-target]');
+        const planet = document.querySelector('#hand-planet');
+        const bgMusic = document.querySelector('#bg-music');
+        const soundBtn = document.querySelector('#sound-btn');
+        const playBtn = document.querySelector('#play-btn');
+        const nextBtn = document.querySelector('#next-btn');
+        const exitBtn = document.querySelector('#exit-btn');
+        const peaceDove = document.querySelector('#peace-dove-entity');
+        const successSound = document.querySelector('#success-sound');
+        const canvas = document.querySelector('#word-canvas');
+        const ctx = canvas.getContext('2d');
+        const arScene = document.querySelector('a-scene');
+
+        const earthTexture = document.querySelector('#earth-texture');
+        if (earthTexture) {
+            earthTexture.addEventListener('load', () => { console.log('✅ Текстура earth.jpg успішно завантажена'); });
+            earthTexture.addEventListener('error', () => { console.error('❌ Помилка завантаження текстури earth.jpg'); });
+        }
+        const peaceDoveImg = document.querySelector('#peace-dove-img');
+        if (peaceDoveImg) {
+            peaceDoveImg.addEventListener('load', () => { console.log('✅ Текстура голуба успішно завантажена'); });
+            peaceDoveImg.addEventListener('error', () => { console.error('❌ Помилка завантаження текстури peace-dove.png'); });
+        }
+
+        function getTextWidth(text, font) {
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            context.font = font;
+            return context.measureText(text).width + 10;
+        }
+
+        const phrases = [
+            ['Мир', 'Україні', 'Річка', 'Гора'],
+            ['Свобода', 'всім', 'Ліс', 'Море'],
+            ['Єдність', 'і', 'мир', 'Дерево', 'Сонце'],
+            ['Україна', 'моя', 'Батьківщина', 'квітка'], // Виправлені слова для 4-ї фрази
+            ['Добро', 'переможе', 'Зло', 'Сміх']
+        ];
+
+        const correctPhraseOrders = [
+            ['Мир', 'Україні'],
+            ['Свобода', 'всім'],
+            ['Єдність', 'і', 'мир'],
+            ['Україна', 'моя', 'Батьківщина'],
+            ['Добро', 'переможе']
+        ];
+
+        let currentPhraseIndex = 0;
+        let words = [];
+        let selectedWord = null;
+        let isGameActive = false;
+        let currentCompletedPhrase = [];
+
+        targetEntity.addEventListener('targetFound', () => {
+            console.log("🎯 Маркер знайдено! Планета з'явилася.");
+            loader.style.display = 'none';
+            planet.setAttribute('visible', 'true');
+            if (bgMusic.paused) {
+                bgMusic.play().catch(e => console.log("🔇 Помилка відтворення музики:", e));
+                soundBtn.classList.remove('off');
+                soundBtn.textContent = 'Вимкнути звук';
+            }
+            if (!isGameActive) {
+                playBtn.style.display = 'block';
+            }
+        });
+
+        targetEntity.addEventListener('targetLost', () => {
+            console.log("ℹ️ Маркер втрачено.");
+            planet.setAttribute('visible', 'false');
+            bgMusic.pause();
+            canvas.style.display = 'none';
+            playBtn.style.display = 'none';
+            nextBtn.style.display = 'none';
+            exitBtn.style.display = 'none';
+            loader.style.display = 'flex';
+            loader.querySelector('.pulse').textContent = '🌍 Світ на долоні 🎈';
+            loader.querySelector('div[style]').textContent = 'Наведи камеру на маркер! 😊🎨';
+        });
+
+        soundBtn.addEventListener('click', () => {
+            if (bgMusic.paused) {
+                bgMusic.play().catch(e => console.log("🔇 Помилка відтворення музики:", e));
+                soundBtn.classList.remove('off');
+                soundBtn.textContent = 'Вимкнути звук';
+            } else {
+                bgMusic.pause();
+                soundBtn.classList.add('off');
+                soundBtn.textContent = 'Увімкнути звук';
+            }
+        });
+
+        function shuffle(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        function loadPhrase(index) {
+            const phraseWords = phrases[index];
+            const shuffledWords = shuffle([...phraseWords]);
+            words = shuffledWords.map((text) => {
+                return {
+                    text,
+                    x: 0,
+                    y: 0,
+                    width: getTextWidth(text, 'bold 20px Comic Neue'),
+                    height: 30,
+                    placed: false
+                };
+            });
+            currentCompletedPhrase = [];
+            positionWordsRandomly();
+            drawWords();
+        }
+
+        function positionWordsRandomly() {
+            const padding = 20;
+            const horizontalMargin = 20; // Зменшено відступ для кращого використання простору
+            const verticalMargin = 15; // Відстань між рядками
+            let currentX = horizontalMargin;
+            let currentY = 50;
+            const availableWidth = canvas.width - horizontalMargin * 2;
+            
+            // Розподіляємо слова по рядках
+            const lines = [];
+            let line = [];
+            let lineWidth = 0;
+            
+            words.forEach(word => {
+                const wordWidth = word.width;
+                if (lineWidth + wordWidth + padding > availableWidth && line.length > 0) {
+                    lines.push(line);
+                    line = [word];
+                    lineWidth = wordWidth + padding;
+                } else {
+                    line.push(word);
+                    lineWidth += wordWidth + padding;
+                }
+            });
+            if (line.length > 0) {
+                lines.push(line);
+            }
+            
+            // Розраховуємо та встановлюємо координати
+            lines.forEach(line => {
+                const totalLineWidth = line.reduce((sum, word) => sum + word.width + padding, 0) - padding;
+                let startX = (canvas.width - totalLineWidth) / 2;
+                
+                line.forEach(word => {
+                    word.x = startX;
+                    word.y = currentY;
+                    startX += word.width + padding;
+                });
+                currentY += line[0].height + verticalMargin;
+            });
+        }
+
+        function drawWords() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.font = 'bold 20px Comic Neue';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'top';
+
+            ctx.fillStyle = '#FF4500';
+            ctx.font = 'bold 22px Comic Neue';
+            ctx.textAlign = 'center';
+            ctx.fillText('🎯 Склади фразу!', canvas.width / 2, 30);
+
+            const containerWidth = canvas.width - 60;
+            const containerHeight = 50;
+            const containerX = (canvas.width - containerWidth) / 2;
+            const containerY = canvas.height - 80;
+            ctx.strokeStyle = '#FFD700';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(containerX, containerY, containerWidth, containerHeight);
+
+            let placedX = containerX + 10;
+            currentCompletedPhrase.forEach(wordText => {
+                const wordWidth = getTextWidth(wordText, 'bold 20px Comic Neue');
+                ctx.fillStyle = '#0057B7';
+                ctx.fillText(wordText, placedX, containerY + 10);
+                placedX += wordWidth + 10;
+            });
+
+            words.forEach(word => {
+                if (!word.placed) {
+                    ctx.fillStyle = '#FF4500';
+                    ctx.shadowColor = 'rgba(0,0,0,0.2)';
+                    ctx.shadowBlur = 3;
+                    ctx.shadowOffsetX = 1;
+                    ctx.shadowOffsetY = 1;
+                    ctx.fillText(word.text, word.x, word.y);
+                    ctx.shadowColor = 'transparent';
+                }
+            });
+        }
+
+        function startWordGame() {
+            isGameActive = true;
+            canvas.style.display = 'block';
+            playBtn.style.display = 'none';
+            nextBtn.style.display = 'none';
+            exitBtn.style.display = 'block';
+            peaceDove.setAttribute('visible', 'false');
+            currentPhraseIndex = 0;
+            loadPhrase(currentPhraseIndex);
+
+            canvas.addEventListener('mousedown', handleMouseDown);
+            canvas.addEventListener('mousemove', handleMouseMove);
+            canvas.addEventListener('mouseup', handleMouseUp);
+            canvas.addEventListener('touchstart', handleTouchStart);
+            canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
+            canvas.addEventListener('touchend', handleMouseUp);
+        }
+
+        function exitGame() {
+            isGameActive = false;
+            canvas.style.display = 'none';
+            playBtn.style.display = 'block';
+            nextBtn.style.display = 'none';
+            exitBtn.style.display = 'none';
+            peaceDove.setAttribute('visible', 'true');
+        }
+
+        function getCanvasCoords(e, isTouch = false) {
+            const rect = canvas.getBoundingClientRect();
+            const x = isTouch ? e.touches[0].clientX - rect.left : e.clientX - rect.left;
+            const y = isTouch ? e.touches[0].clientY - rect.top : e.clientY - rect.top;
+            return { x, y };
+        }
+
+        function handleMouseDown(e) {
+            e.preventDefault();
+            const { x, y } = getCanvasCoords(e);
+            selectedWord = words.find(word =>
+                !word.placed && x > word.x && x < word.x + word.width && y > word.y && y < word.y + word.height
+            );
+        }
+
+        function handleTouchStart(e) {
+            e.preventDefault();
+            const { x, y } = getCanvasCoords(e, true);
+            selectedWord = words.find(word =>
+                !word.placed && x > word.x && x < word.x + word.width && y > word.y && y < word.y + word.height
+            );
+        }
+
+        function handleMouseMove(e) {
+            if (selectedWord) {
+                const { x, y } = getCanvasCoords(e, e.touches);
+                selectedWord.x = x - selectedWord.width / 2;
+                selectedWord.y = y - selectedWord.height / 2;
+                drawWords();
+            }
+        }
+
+        function handleTouchMove(e) {
+            e.preventDefault();
+            if (selectedWord) {
+                const { x, y } = getCanvasCoords(e, true);
+                selectedWord.x = x - selectedWord.width / 2;
+                selectedWord.y = y - selectedWord.height / 2;
+                drawWords();
+            }
+        }
+
+        function handleMouseUp() {
+            if (selectedWord) {
+                const containerY = canvas.height - 80;
+                const containerHeight = 50;
+
+                if (selectedWord.y > containerY && selectedWord.y < containerY + containerHeight) {
+                    const nextWord = correctPhraseOrders[currentPhraseIndex][currentCompletedPhrase.length];
+                    if (selectedWord.text === nextWord) {
+                        currentCompletedPhrase.push(selectedWord.text);
+                        words = words.filter(w => w !== selectedWord);
+                        selectedWord = null;
+                        checkWinCondition();
+                    } else {
+                        selectedWord = null;
+                        positionWordsRandomly();
+                    }
+                } else {
+                    selectedWord = null;
+                    positionWordsRandomly();
+                }
+                drawWords();
+            }
+        }
+
+        function checkWinCondition() {
+            const targetPhrase = correctPhraseOrders[currentPhraseIndex];
+            if (currentCompletedPhrase.join(' ') === targetPhrase.join(' ')) {
+                isGameActive = false;
+                if (successSound) successSound.play();
+                peaceDove.setAttribute('visible', 'true');
+
+                setTimeout(() => {
+                    canvas.style.display = 'none';
+                    if (currentPhraseIndex < phrases.length - 1) {
+                        nextBtn.style.display = 'block';
+                        exitBtn.style.display = 'block';
+                    } else {
+                        console.log('🎉 Гра завершена! Вітаємо!');
+                        nextBtn.style.display = 'none';
+                        exitBtn.style.display = 'none';
+                        playBtn.style.display = 'block';
+                    }
+                }, 3000);
+            }
+        }
+
+        playBtn.addEventListener('click', () => {
+            currentPhraseIndex = 0;
+            startWordGame();
+        });
+
+        nextBtn.addEventListener('click', () => {
+            currentPhraseIndex++;
+            loadPhrase(currentPhraseIndex);
+            nextBtn.style.display = 'none';
+            isGameActive = true;
+            canvas.style.display = 'block';
+            peaceDove.setAttribute('visible', 'false');
+        });
+
+        exitBtn.addEventListener('click', exitGame);
+
+        AFRAME.registerComponent('touch-gestures', {
+            schema: {
+                minScale: { type: 'number', default: 0.2 },
+                maxScale: { type: 'number', default: 3.0 },
+                rotationSpeed: { type: 'number', default: 2.0 }
+            },
+            init: function () {
+                this.isRotating = false;
+                this.isPinching = false;
+                this.startPos = { x: 0, y: 0 };
+                this.currentScale = 1;
+                this.planet = document.querySelector('#hand-planet');
+                this.el.addEventListener('touchstart', (e) => {
+                    if (isGameActive) return;
+                    e.preventDefault();
+                    if (e.touches.length === 1) {
+                        this.isRotating = true;
+                        this.startPos.x = e.touches[0].pageX;
+                    } else if (e.touches.length === 2) {
+                        this.isPinching = true;
+                        this.isRotating = false;
+                        this.initialDistance = Math.hypot(
+                            e.touches[0].pageX - e.touches[1].pageX,
+                            e.touches[0].pageY - e.touches[1].pageY
+                        );
+                        this.currentScale = this.planet.object3D.scale.x;
+                    }
+                });
+
+                this.el.addEventListener('touchmove', (e) => {
+                    if (isGameActive) return;
+                    e.preventDefault();
+                    if (this.isPinching && e.touches.length === 2) {
+                        const currentDistance = Math.hypot(
+                            e.touches[0].pageX - e.touches[1].pageX,
+                            e.touches[0].pageY - e.touches[1].pageY
+                        );
+                        const scaleFactor = currentDistance / this.initialDistance;
+                        const newScale = Math.max(this.data.minScale, Math.min(this.data.maxScale, this.currentScale * scaleFactor));
+                        this.planet.object3D.scale.set(newScale, newScale, newScale);
+                    } else if (this.isRotating && e.touches.length === 1) {
+                        const deltaX = (e.touches[0].pageX - this.startPos.x) * this.data.rotationSpeed;
+                        this.planet.object3D.rotation.y += THREE.MathUtils.degToRad(deltaX);
+                        this.startPos.x = e.touches[0].pageX;
+                    }
+                });
+
+                this.el.addEventListener('touchend', () => {
+                    this.isRotating = false;
+                    this.isPinching = false;
+                });
+            }
+        });
+    </script>
+</body>
+</html>
