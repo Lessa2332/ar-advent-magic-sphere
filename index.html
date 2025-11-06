@@ -21,11 +21,12 @@
         Сьогодні: День <span id="today">1</span><br>
         Наведи камеру на маркер і торкнися кулі!
     </div>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.150.0/build/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image.prod.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js"></script>
-    <script>
-        // Вбудований JS (замість main.js)
+    <script type="module">
+        // ES Module imports
+        import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.module.js';
+        import { MindARThree } from 'https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.module.js';
+
+        // Масив завдань (25 днів) — редагуй тут!
         const adventTasks = [
             "Запали свічку і загадай бажання 🎄",  // День 1
             "Напиши листа Санті 📝",               // День 2
@@ -56,225 +57,230 @@
 
         document.addEventListener('DOMContentLoaded', async () => {
             const start = async () => {
-                // Логіка дати
-                const today = new Date();
-                const currentDay = today.getDate();
-                const currentMonth = today.getMonth() + 1;
-                const adventMonth = 12;
-                const totalDays = 25;
-                const unlockedDays = (currentMonth === adventMonth && currentDay <= totalDays) 
-                    ? currentDay 
-                    : (currentMonth > adventMonth ? totalDays : 0);
-                document.getElementById('today').innerText = unlockedDays || '0 (чекай грудня!)';
+                try {
+                    // Логіка дати
+                    const today = new Date();
+                    const currentDay = today.getDate();
+                    const currentMonth = today.getMonth() + 1;
+                    const adventMonth = 12;
+                    const totalDays = 25;
+                    const unlockedDays = (currentMonth === adventMonth && currentDay <= totalDays) 
+                        ? currentDay 
+                        : (currentMonth > adventMonth ? totalDays : 0);
+                    document.getElementById('today').innerText = unlockedDays || '0 (чекай грудня!)';
 
-                // Ініціалізація MindAR
-                const mindarThree = new window.MINDAR.IMAGE.MindARThree({
-                    container: document.body,
-                    imageTargetSrc: './card.mind'  // Заміни на свій .mind файл
-                });
-                const { renderer, scene, camera } = mindarThree;
-
-                // Скляна сфера
-                const sphereGeometry = new THREE.SphereGeometry(0.1, 32, 32);
-                const sphereMaterial = new THREE.MeshPhysicalMaterial({
-                    color: 0xffffff,
-                    transparent: true,
-                    opacity: 0.3,
-                    metalness: 0.9,
-                    roughness: 0.1,
-                    transmission: 0.9,
-                    thickness: 0.1
-                });
-                const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
-                sphere.position.set(0, 0, 0.01);
-
-                // Контейнер для текстів
-                const textContainer = new THREE.Group();
-                textContainer.position.set(0, 0, 0);
-                const texts = [];
-                const numDays = 25;
-                const radius = 0.18;
-
-                // Функція для створення текстури з Canvas
-                function createTextTexture(day, task, isUnlocked) {
-                    const canvas = document.createElement('canvas');
-                    canvas.width = 512;
-                    canvas.height = 256;
-                    const ctx = canvas.getContext('2d');
-
-                    // Градієнтний фон
-                    const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-                    gradient.addColorStop(0, isUnlocked ? '#4a90e2' : '#666666');
-                    gradient.addColorStop(1, isUnlocked ? '#9013fe' : '#333333');
-                    ctx.fillStyle = gradient;
-                    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-                    // Рамка
-                    ctx.strokeStyle = isUnlocked ? '#ffd700' : '#888';
-                    ctx.lineWidth = 4;
-                    ctx.strokeRect(10, 10, canvas.width - 20, canvas.height - 20);
-
-                    // Текст: День
-                    ctx.fillStyle = 'white';
-                    ctx.font = 'bold 48px "Playfair Display"';
-                    ctx.textAlign = 'center';
-                    ctx.fillText(`День ${day}`, canvas.width / 2, 80);
-
-                    // Завдання (з переносом)
-                    ctx.font = '32px "Caveat"';
-                    ctx.fillStyle = isUnlocked ? 'white' : '#ccc';
-                    const lines = wrapText(ctx, task, canvas.width - 40, 32);
-                    lines.forEach((line, i) => {
-                        ctx.fillText(line, canvas.width / 2, 140 + i * 40);
+                    // Ініціалізація MindAR (ES module версія)
+                    const mindarThree = new MindARThree({
+                        container: document.body,
+                        imageTargetSrc: './card.mind'  // Заміни на свій .mind файл
                     });
+                    const { renderer, scene, camera } = mindarThree;
 
-                    // Іконка
-                    ctx.font = 'bold 60px Arial';
-                    ctx.fillText(isUnlocked ? '🎄' : '🔒', canvas.width / 2, 220);
-
-                    return new THREE.CanvasTexture(canvas);
-                }
-
-                // Функція переносу тексту
-                function wrapText(ctx, text, maxWidth, lineHeight) {
-                    const words = text.split(' ');
-                    const lines = [];
-                    let currentLine = '';
-                    words.forEach(word => {
-                        const testLine = currentLine + word + ' ';
-                        if (ctx.measureText(testLine).width > maxWidth) {
-                            lines.push(currentLine.trim());
-                            currentLine = word + ' ';
-                        } else {
-                            currentLine = testLine;
-                        }
-                    });
-                    lines.push(currentLine.trim());
-                    return lines;
-                }
-
-                // Створення площин з текстами
-                for (let i = 0; i < numDays; i++) {
-                    const day = i + 1;
-                    const task = adventTasks[day - 1];
-                    const planeGeometry = new THREE.PlaneGeometry(0.08, 0.05);
-
-                    const material = new THREE.MeshBasicMaterial({
-                        map: createTextTexture(day, task, day <= unlockedDays),
+                    // Скляна сфера
+                    const sphereGeometry = new THREE.SphereGeometry(0.1, 32, 32);
+                    const sphereMaterial = new THREE.MeshPhysicalMaterial({
+                        color: 0xffffff,
                         transparent: true,
-                        side: THREE.DoubleSide
+                        opacity: 0.3,
+                        metalness: 0.9,
+                        roughness: 0.1,
+                        transmission: 0.9,
+                        thickness: 0.1
+                    });
+                    const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
+                    sphere.position.set(0, 0, 0.01);
+
+                    // Контейнер для текстів
+                    const textContainer = new THREE.Group();
+                    textContainer.position.set(0, 0, 0);
+                    const texts = [];
+                    const numDays = 25;
+                    const radius = 0.18;
+
+                    // Функція для створення текстури з Canvas
+                    function createTextTexture(day, task, isUnlocked) {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = 512;
+                        canvas.height = 256;
+                        const ctx = canvas.getContext('2d');
+
+                        // Градієнтний фон
+                        const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+                        gradient.addColorStop(0, isUnlocked ? '#4a90e2' : '#666666');
+                        gradient.addColorStop(1, isUnlocked ? '#9013fe' : '#333333');
+                        ctx.fillStyle = gradient;
+                        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                        // Рамка
+                        ctx.strokeStyle = isUnlocked ? '#ffd700' : '#888';
+                        ctx.lineWidth = 4;
+                        ctx.strokeRect(10, 10, canvas.width - 20, canvas.height - 20);
+
+                        // Текст: День
+                        ctx.fillStyle = 'white';
+                        ctx.font = 'bold 48px "Playfair Display"';
+                        ctx.textAlign = 'center';
+                        ctx.fillText(`День ${day}`, canvas.width / 2, 80);
+
+                        // Завдання (з переносом)
+                        ctx.font = '32px "Caveat"';
+                        ctx.fillStyle = isUnlocked ? 'white' : '#ccc';
+                        const lines = wrapText(ctx, task, canvas.width - 40, 32);
+                        lines.forEach((line, i) => {
+                            ctx.fillText(line, canvas.width / 2, 140 + i * 40);
+                        });
+
+                        // Іконка
+                        ctx.font = 'bold 60px Arial';
+                        ctx.fillText(isUnlocked ? '🎄' : '🔒', canvas.width / 2, 220);
+
+                        return new THREE.CanvasTexture(canvas);
+                    }
+
+                    // Функція переносу тексту
+                    function wrapText(ctx, text, maxWidth, lineHeight) {
+                        const words = text.split(' ');
+                        const lines = [];
+                        let currentLine = '';
+                        words.forEach(word => {
+                            const testLine = currentLine + word + ' ';
+                            if (ctx.measureText(testLine).width > maxWidth) {
+                                lines.push(currentLine.trim());
+                                currentLine = word + ' ';
+                            } else {
+                                currentLine = testLine;
+                            }
+                        });
+                        lines.push(currentLine.trim());
+                        return lines;
+                    }
+
+                    // Створення площин з текстами
+                    for (let i = 0; i < numDays; i++) {
+                        const day = i + 1;
+                        const task = adventTasks[day - 1];
+                        const planeGeometry = new THREE.PlaneGeometry(0.08, 0.05);
+
+                        const material = new THREE.MeshBasicMaterial({
+                            map: createTextTexture(day, task, day <= unlockedDays),
+                            transparent: true,
+                            side: THREE.DoubleSide
+                        });
+
+                        const plane = new THREE.Mesh(planeGeometry, material);
+                        const angle = (i / numDays) * Math.PI * 2;
+                        plane.position.set(
+                            Math.cos(angle) * radius,
+                            Math.sin(angle) * radius * 0.5,
+                            Math.sin(angle) * radius
+                        );
+                        plane.lookAt(0, 0, 0);
+                        plane.userData = { day, unlocked: day <= unlockedDays };
+
+                        textContainer.add(plane);
+                        texts.push(plane);
+                    }
+
+                    // Якір для маркера
+                    const anchor = mindarThree.addAnchor(0);
+                    anchor.group.add(sphere);
+                    anchor.group.add(textContainer);
+
+                    // Анімація обертання
+                    let isRotating = false;
+                    let rotationSpeed = 0.01;
+                    let hasOpenedToday = false;
+
+                    // Raycaster для інтеракції
+                    const raycaster = new THREE.Raycaster();
+                    const mouse = new THREE.Vector2();
+
+                    // Обробник торкання
+                    window.addEventListener('click', (event) => {
+                        mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+                        mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+                        raycaster.setFromCamera(mouse, camera);
+                        const intersects = raycaster.intersectObjects(texts);
+
+                        if (intersects.length > 0) {
+                            const clicked = intersects[0].object;
+                            const day = clicked.userData.day;
+
+                            if (!clicked.userData.unlocked) {
+                                showMessage(`День ${day} ще не настав! 🔒`);
+                                return;
+                            }
+
+                            if (day === currentDay && !hasOpenedToday) {
+                                openDay(clicked, day);
+                                hasOpenedToday = true;
+                            } else if (day < currentDay) {
+                                showMessage(`День ${day} вже відкрито! 🎄`);
+                            }
+                        } else {
+                            // Торкання кулі — обертання
+                            const sphereIntersect = raycaster.intersectObject(sphere);
+                            if (sphereIntersect.length > 0 && !isRotating) {
+                                isRotating = true;
+                                setTimeout(() => { isRotating = false; }, 5000); // 5 сек
+                                showMessage('Куля обертається... Вибери день!');
+                            }
+                        }
                     });
 
-                    const plane = new THREE.Mesh(planeGeometry, material);
-                    const angle = (i / numDays) * Math.PI * 2;
-                    plane.position.set(
-                        Math.cos(angle) * radius,
-                        Math.sin(angle) * radius * 0.5,
-                        Math.sin(angle) * radius
-                    );
-                    plane.lookAt(0, 0, 0);
-                    plane.userData = { day, unlocked: day <= unlockedDays };
+                    // Функція відкриття дня
+                    function openDay(plane, day) {
+                        const clone = plane.clone();
+                        clone.position.copy(plane.position);
+                        clone.scale.copy(plane.scale);
+                        scene.add(clone);
 
-                    textContainer.add(plane);
-                    texts.push(plane);
-                }
+                        let fallTime = 0;
+                        const duration = 1500;
+                        const startY = clone.position.y;
 
-                // Якір для маркера
-                const anchor = mindarThree.addAnchor(0);
-                anchor.group.add(sphere);
-                anchor.group.add(textContainer);
+                        const anim = () => {
+                            fallTime += 16;
+                            const progress = Math.min(fallTime / duration, 1);
+                            const ease = 1 - Math.pow(1 - progress, 3);
 
-                // Анімація обертання
-                let isRotating = false;
-                let rotationSpeed = 0.01;
-                let hasOpenedToday = false;
+                            clone.scale.setScalar(1 + ease * 2);
+                            clone.position.y = startY - ease * 0.3;
+                            if (clone.material) clone.material.opacity = 1 - ease;
 
-                // Raycaster для інтеракції
-                const raycaster = new THREE.Raycaster();
-                const mouse = new THREE.Vector2();
-
-                // Обробник торкання
-                window.addEventListener('click', (event) => {
-                    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-                    mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-
-                    raycaster.setFromCamera(mouse, camera);
-                    const intersects = raycaster.intersectObjects(texts);
-
-                    if (intersects.length > 0) {
-                        const clicked = intersects[0].object;
-                        const day = clicked.userData.day;
-
-                        if (!clicked.userData.unlocked) {
-                            showMessage(`День ${day} ще не настав! 🔒`);
-                            return;
-                        }
-
-                        if (day === currentDay && !hasOpenedToday) {
-                            openDay(clicked, day);
-                            hasOpenedToday = true;
-                        } else if (day < currentDay) {
-                            showMessage(`День ${day} вже відкрито! 🎄`);
-                        }
-                    } else {
-                        // Торкання кулі — обертання
-                        const sphereIntersect = raycaster.intersectObject(sphere);
-                        if (sphereIntersect.length > 0 && !isRotating) {
-                            isRotating = true;
-                            setTimeout(() => { isRotating = false; }, 5000); // 5 сек
-                            showMessage('Куля обертається... Вибери день!');
-                        }
+                            if (progress < 1) {
+                                requestAnimationFrame(anim);
+                            } else {
+                                scene.remove(clone);
+                                showMessage(`День ${day} відкрито! "${adventTasks[day - 1]}" 🎉`, 4000);
+                                plane.visible = false;
+                            }
+                        };
+                        anim();
                     }
-                });
 
-                // Функція відкриття дня
-                function openDay(plane, day) {
-                    const clone = plane.clone();
-                    clone.position.copy(plane.position);
-                    clone.scale.copy(plane.scale);
-                    scene.add(clone);
-
-                    let fallTime = 0;
-                    const duration = 1500;
-                    const startY = clone.position.y;
-
-                    const anim = () => {
-                        fallTime += 16;
-                        const progress = Math.min(fallTime / duration, 1);
-                        const ease = 1 - Math.pow(1 - progress, 3);
-
-                        clone.scale.setScalar(1 + ease * 2);
-                        clone.position.y = startY - ease * 0.3;
-                        clone.material.opacity = 1 - ease;
-
-                        if (progress < 1) {
-                            requestAnimationFrame(anim);
-                        } else {
-                            scene.remove(clone);
-                            showMessage(`День ${day} відкрито! "${adventTasks[day - 1]}" 🎉`, 4000);
-                            plane.visible = false;
-                        }
-                    };
-                    anim();
-                }
-
-                // Показ повідомлення
-                function showMessage(text, timeout = 2000) {
-                    const msg = document.getElementById('info');
-                    msg.innerHTML = text;
-                    setTimeout(() => { 
-                        msg.innerHTML = `AR Адвент-Календар 🎄<br>Сьогодні: День <span id="today">${unlockedDays || '0 (чекай грудня!)'}</span><br>Наведи камеру на маркер і торкнися кулі!`; 
-                    }, timeout);
-                }
-
-                // Запуск
-                await mindarThree.start();
-                renderer.setAnimationLoop(() => {
-                    if (isRotating) {
-                        textContainer.rotation.y += rotationSpeed;
+                    // Показ повідомлення
+                    function showMessage(text, timeout = 2000) {
+                        const msg = document.getElementById('info');
+                        msg.innerHTML = text;
+                        setTimeout(() => { 
+                            msg.innerHTML = `AR Адвент-Календар 🎄<br>Сьогодні: День <span id="today">${unlockedDays || '0 (чекай грудня!)'}</span><br>Наведи камеру на маркер і торкнися кулі!`; 
+                        }, timeout);
                     }
-                    renderer.render(scene, camera);
-                });
+
+                    // Запуск
+                    await mindarThree.start();
+                    renderer.setAnimationLoop(() => {
+                        if (isRotating) {
+                            textContainer.rotation.y += rotationSpeed;
+                        }
+                        renderer.render(scene, camera);
+                    });
+                } catch (error) {
+                    console.error('Помилка запуску AR:', error);
+                    document.getElementById('info').innerHTML = 'Помилка: Перевірте маркер і HTTPS. Деталі в консолі.';
+                }
             };
             start();
         });
