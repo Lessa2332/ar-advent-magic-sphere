@@ -4,394 +4,158 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Передай лист Санті</title>
-    <style>
-        body {
-            margin: 0;
-            overflow: hidden;
-            background: #0a1e3a;
-            color: white;
-            font-family: sans-serif;
-        }
-        .hidden { display: none !important; }
-       
-        #startScreen {
-            position: fixed;
-            inset: 0;
-            background: linear-gradient(135deg, #0f3443, #1e5a7e);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            text-align: center;
-            padding: 20px;
-            z-index: 100;
-        }
-        h1 {
-            font-size: 2.8em;
-            color: #ffd700;
-            text-shadow: 0 0 20px gold;
-            margin-bottom: 20px;
-        }
-       
-        button {
-            background: #e74c3c;
-            color: white;
-            border: none;
-            padding: 18px 50px;
-            font-size: 1.6em;
-            border-radius: 50px;
-            margin-top: 30px;
-            box-shadow: 0 10px 30px rgba(231,76,60,.6);
-            cursor: pointer;
-            transition: 0.2s;
-        }
-        button:active { transform: scale(0.95); }
-       
-        #arContainer { 
-            position: fixed; 
-            inset: 0; 
-            background: #0a1e3a;
-        }
-       
-        #hint {
-            position: absolute;
-            top: 15px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: #000000cc;
-            padding: 12px 30px;
-            border-radius: 20px;
-            font-size: 1.7em;
-            z-index: 10;
-            pointer-events: none;
-            text-align: center;
-            width: auto;
-            max-width: 90%;
-            padding-bottom: 20px;
-        }
-        #sendBtn {
-            position: absolute;
-            bottom: 90px;
-            left: 50%;
-            transform: translateX(-50%);
-            padding: 20px 60px;
-            font-size: 2em;
-            background: #27ae60;
-            border-radius: 50px;
-            z-index: 20;
-            display: none;
-        }
-       
-        #elfIdle, #elfMagic {
-            position: absolute;
-            bottom: 0;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 85vw;
-            max-width: 400px;
-            height: auto;
-            max-height: 75vh;
-            background-size: 100% auto;
-            background-repeat: no-repeat;
-            background-position: center bottom;
-            pointer-events: none;
-            opacity: 0;
-            transition: opacity 1.3s ease;
-            z-index: 5;
-        }
-        #elfMagic { z-index: 6; }
-       
-        .loading {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            font-size: 1.5em;
-            z-index: 999;
-            background: #000000cc;
-            padding: 20px;
-            border-radius: 10px;
-        }
 
-        /* Стилі для A-Frame сцени */
-        .aframe-scene {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-        }
+    <!-- 1. A-Frame ПЕРШИМ у <head> — це усуває всі попередження -->
+    <script src="https://cdn.jsdelivr.net/npm/aframe@1.5.0/dist/aframe.min.js"></script>
+    <!-- 2. MindAR-AFrame (він сам підтягує правильну версію Three.js) -->
+    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+
+    <style>
+        body{margin:0;overflow:hidden;background:#0a1e3a;color:white;font-family:sans-serif}
+        .hidden{display:none!important}
+        #startScreen{position:fixed;inset:0;background:linear-gradient(135deg,#0f3443,#1e5a7e);display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:20px;z-index:100}
+        h1{font-size:2.8em;color:#ffd700;text-shadow:0 0 20px gold;margin-bottom:20px}
+        button{background:#e74c3c;color:white;border:none;padding:18px 50px;font-size:1.6em;border-radius:50px;margin-top:30px;box-shadow:0 10px 30px rgba(231,76,60,.6);cursor:pointer;transition:.2s}
+        button:active{transform:scale(.95)}
+        #arContainer{position:fixed;inset:0}
+        #hint{position:absolute;top:15px;left:50%;transform:translateX(-50%);background:#000000cc;padding:12px 30px;border-radius:20px;font-size:1.7em;z-index:10;pointer-events:none;text-align:center;max-width:90%}
+        #sendBtn{position:absolute;bottom:90px;left:50%;transform:translateX(-50%);padding:20px 60px;font-size:2em;background:#27ae60;border-radius:50px;z-index:20;display:none}
+        #elfIdle,#elfMagic{position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:85vw;max-width:400px;height:auto;max-height:75vh;background-size:100% auto;background-repeat:no-repeat;background-position:center bottom;pointer-events:none;opacity:0;transition:opacity 1.3s ease;z-index:5}
+        #elfMagic{z-index:6}
+        #loading{position:fixed;inset:0;background:#000c;display:flex;align-items:center;justify-content:center;font-size:2em;z-index:999}
     </style>
 </head>
 <body>
+
 <div id="startScreen">
     <h1>Передай лист Санті</h1>
     <p>Напиши бажання на папері — і віддай його ельфу!</p>
     <button id="startBtn">Почати</button>
 </div>
+
 <div id="arContainer" class="hidden">
     <div id="hint">Знайди дзвіночок!</div>
     <button id="sendBtn">Відправити лист</button>
     <div id="elfIdle"></div>
     <div id="elfMagic"></div>
 </div>
-<div id="loading" class="loading hidden">Завантаження...</div>
 
-<!-- ФІКС: A-FRAME ПЕРШИЙ -->
-<script src="https://cdn.jsdelivr.net/npm/aframe@1.4.2/dist/aframe.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
+<div id="loading" class="hidden">Завантаження...</div>
 
 <script>
-    let magicSound;
+document.getElementById('startBtn').onclick = async () => {
+    if (location.protocol !== 'https:' && !location.hostname.includes('localhost')) {
+        alert('Потрібен HTTPS!'); return;
+    }
+
+    // Перевірка файлів
+    const files = ['targets.mind','elf-idle.png','elf-magic.png','waiting.mp3','magic-sound.mp3'];
+    for (const f of files) {
+        if (!await fetch(f,{method:'HEAD'}).then(r=>r.ok)) {
+            alert('Не знайдено файл: '+f); location.reload(); return;
+        }
+    }
+
+    document.getElementById('startScreen').classList.add('hidden');
+    document.getElementById('arContainer').classList.remove('hidden');
+    document.getElementById('loading').classList.remove('hidden');
+
+    const sceneHTML = `
+        <a-scene mindar-image="imageTargetSrc: targets.mind; uiLoading: no; uiScanning: no;" embedded renderer="colorManagement:false">
+            <a-camera position="0 1.6 0"></a-camera>
+
+            <!-- Дзвіночок (targetIndex 0) -->
+            <a-entity mindar-image-target="targetIndex: 0"></a-entity>
+
+            <!-- Зірочка (targetIndex 1) — тут ельф і звук -->
+            <a-entity mindar-image-target="targetIndex: 1">
+                <a-entity position="0 1 0" sound="src: waiting.mp3; autoplay: false; loop: true; positional: true; refDistance: 0.8; maxDistance: 10"></a-entity>
+            </a-entity>
+        </a-scene>
+    `;
+    document.getElementById('arContainer').innerHTML += sceneHTML;
+
+    const sceneEl = document.querySelector('a-scene');
+    const anchor1 = sceneEl.querySelectorAll('a-entity')[1];   // дзвіночок
+    const anchor2 = sceneEl.querySelectorAll('a-entity')[2];   // зірочка
+    const audioEntity = anchor2.querySelector('a-entity');
+
     let step = 0;
-    let idleInterval = null;
     const hint = document.getElementById('hint');
     const sendBtn = document.getElementById('sendBtn');
     const elfIdle = document.getElementById('elfIdle');
     const elfMagic = document.getElementById('elfMagic');
-    const loading = document.getElementById('loading');
+    const magicSound = new Audio('magic-sound.mp3'); magicSound.volume = 0.9;
 
-    // Функція для перевірки наявності файлів
-    async function checkResource(url) {
-        try {
-            const response = await fetch(url, { method: 'HEAD' });
-            return response.ok;
-        } catch {
-            return false;
-        }
-    }
+    anchor1.addEventListener('targetFound', () => {
+        if (step === 0) { step = 1; hint.textContent = "Чудово! Тепер зірочку!"; }
+    });
 
-    // Функція для створення аудіо
-    function createAudio(src) {
-        return new Promise((resolve) => {
-            const audio = new Audio();
-            audio.preload = 'auto';
-            audio.oncanplaythrough = () => resolve(audio);
-            audio.onerror = () => {
-                console.warn('Не вдалося завантажити аудіо:', src);
-                resolve(null);
-            };
-            audio.src = src;
-        });
-    }
+    anchor2.addEventListener('targetFound', () => {
+        if (step !== 1) return;
+        audioEntity.components.sound.play();
+        hint.textContent = "Я тут, чекаю твого листа…";
+        step = 2;
+    });
 
-    document.getElementById('startBtn').addEventListener('click', async () => {
-        // Перевірка на HTTPS
-        if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
-            alert('Цей додаток працює лише через HTTPS або localhost.');
-            return;
-        }
+    // Відстеження відстані
+    sceneEl.addEventListener('renderstart', () => {
+        const cam = sceneEl.camera;
+        const loop = () => {
+            if (step === 2 && anchor2.object3D.visible) {
+                const dist = cam.position.distanceTo(anchor2.object3D.getWorldPosition(new THREE.Vector3()));
+                audioEntity.components.sound.setVolume(Math.max(0.1, 1 - dist/5));
 
-        document.getElementById('startScreen').classList.add('hidden');
-        document.getElementById('arContainer').classList.remove('hidden');
-        loading.classList.remove('hidden');
-
-        // Перевірка наявності критичних ресурсів
-        const requiredResources = [
-            'targets.mind',
-            'elf-idle.png',
-            'elf-magic.png'
-        ];
-
-        for (const resource of requiredResources) {
-            const exists = await checkResource(resource);
-            if (!exists) {
-                alert(`Помилка: Файл ${resource} не знайдено! Переконайтесь, що всі файли завантажені в репозиторій.`);
-                location.reload();
-                return;
+                if (dist < 0.5 && elfIdle.style.opacity == '0') {
+                    elfIdle.style.background = 'url("elf-idle.png") center bottom / 100% auto no-repeat';
+                    elfIdle.style.opacity = 1;
+                    sendBtn.style.display = 'block';
+                }
             }
+            requestAnimationFrame(loop);
+        };
+        loop();
+    });
+
+    // Idle анімація
+    let frame = 0;
+    setInterval(() => {
+        if (elfIdle.style.opacity > 0) {
+            frame = (frame + 1) % 30;
+            elfIdle.style.backgroundPosition = `center ${-frame * (100/30)}%`;
         }
+    }, 100);
 
-        try {
-            // Завантаження аудіо
-            magicSound = await createAudio('magic-sound.mp3');
-            if (magicSound) magicSound.volume = 0.9;
+    // Магія
+    sendBtn.onclick = () => {
+        sendBtn.style.display = 'none';
+        elfIdle.style.opacity = 0;
+        audioEntity.components.sound.stop();
 
-            // Створюємо A-Scene
-            const sceneEl = document.createElement('a-scene');
-            sceneEl.setAttribute('mindar-image', 'imageTargetSrc: targets.mind; uiLoading: no; uiScanning: no; maxTrack: 2;');
-            sceneEl.setAttribute('vr-mode-ui', 'enabled: false');
-            sceneEl.setAttribute('embedded', '');
-            sceneEl.setAttribute('renderer', 'colorManagement: true; sortObjects: true');
-            sceneEl.classList.add('aframe-scene');
-            
-            // Додаємо камеру
-            const camera = document.createElement('a-camera');
-            camera.setAttribute('position', '0 0 0');
-            camera.setAttribute('look-controls', 'enabled: false');
-            sceneEl.appendChild(camera);
+        elfMagic.style.background = 'url("elf-magic.png") center bottom / 100% auto no-repeat';
+        elfMagic.style.opacity = 1;
+        magicSound.currentTime = 0;
+        magicSound.play();
 
-            // Перший маркер — дзвіночок
-            const anchor1 = document.createElement('a-entity');
-            anchor1.setAttribute('mindar-image-target', 'targetIndex: 0');
-            sceneEl.appendChild(anchor1);
+        hint.textContent = "Я передав твоє бажання Санті! Вітаю з Різдвом!";
 
-            // Другий маркер — зірочка
-            const anchor2 = document.createElement('a-entity');
-            anchor2.setAttribute('mindar-image-target', 'targetIndex: 1');
-            sceneEl.appendChild(anchor2);
-
-            // ✅ ФІКС: Додаємо звук до другого маркера
-            const soundEntity = document.createElement('a-entity');
-            soundEntity.setAttribute('position', '0 1 0'); // Піднімаємо звук на 1 метр
-            soundEntity.setAttribute('sound', 
-                `src: url(waiting.mp3); 
-                 autoplay: false; 
-                 loop: true; 
-                 positional: true; 
-                 distanceModel: inverse; 
-                 refDistance: 0.8; 
-                 maxDistance: 10; 
-                 rolloffFactor: 1;
-                 volume: 0.3`);
-            anchor2.appendChild(soundEntity);
-
-            // Обробники подій для маркерів
-            anchor1.addEventListener('targetFound', () => {
-                if (step === 0) {
-                    step = 1;
-                    hint.textContent = "Чудово! Тепер зірочку!";
-                }
-            });
-
-            anchor2.addEventListener('targetFound', () => {
-                if (step !== 1) return;
-                
-                // ✅ ФІКС: Відтворюємо звук
-                const soundComponent = soundEntity.components.sound;
-                if (soundComponent && !soundComponent.isPlaying) {
-                    soundComponent.play();
-                }
-                
-                hint.textContent = "Я тут, чекаю твого листа…";
-                step = 2;
-            });
-
-            anchor2.addEventListener('targetLost', () => {
-                // Зупиняємо звук коли маркер втрачається
-                const soundComponent = soundEntity.components.sound;
-                if (soundComponent && soundComponent.isPlaying) {
-                    soundComponent.pause();
-                }
-            });
-
-            // Додаємо сцену до DOM
-            document.getElementById('arContainer').appendChild(sceneEl);
-
-            // ✅ ФІКС: Відстеження відстані та гучності
-            sceneEl.addEventListener('renderstart', () => {
-                const updateVolume = () => {
-                    if (step === 2 && anchor2.object3D.visible) {
-                        try {
-                            const cameraObj = sceneEl.camera;
-                            const cameraPos = new THREE.Vector3();
-                            const anchorPos = new THREE.Vector3();
-                            
-                            cameraObj.getWorldPosition(cameraPos);
-                            anchor2.object3D.getWorldPosition(anchorPos);
-                            
-                            // Корегуємо позицію звуку (він на 1 метр вище маркера)
-                            anchorPos.y += 1;
-                            
-                            const distance = cameraPos.distanceTo(anchorPos);
-                            const volume = Math.max(0.1, Math.min(0.6, 1 - distance / 6));
-                            
-                            const soundComponent = soundEntity.components.sound;
-                            if (soundComponent) {
-                                soundComponent.setVolume(volume);
-                            }
-
-                            // Показуємо ельфа коли користувач близько
-                            if (distance < 0.8 && elfIdle.style.opacity === '0') {
-                                elfIdle.classList.remove('hidden');
-                                elfIdle.style.background = 'url("elf-idle.png") center bottom / 100% auto no-repeat';
-                                setTimeout(() => elfIdle.style.opacity = '1', 100);
-                                sendBtn.style.display = 'block';
-                            }
-                        } catch (e) {
-                            console.log('Помилка оновлення гучності:', e);
-                        }
-                    }
-                    requestAnimationFrame(updateVolume);
-                };
-                updateVolume();
-            });
-
-            // Анімація idle ельфа
-            let frame = 0;
-            idleInterval = setInterval(() => {
-                if (parseFloat(elfIdle.style.opacity) > 0) {
-                    frame = (frame + 1) % 24;
-                    elfIdle.style.backgroundPosition = `center ${-frame * (100 / 24)}%`;
-                }
-            }, 120);
-
-            // Обробник відправки листа
-            sendBtn.onclick = () => {
-                sendBtn.style.display = 'none';
-                elfIdle.style.opacity = '0';
-                
-                // Зупиняємо всі звуки
-                const soundComponent = soundEntity.components.sound;
-                if (soundComponent && soundComponent.isPlaying) {
-                    soundComponent.pause();
-                }
-                
-                if (idleInterval) {
-                    clearInterval(idleInterval);
-                    idleInterval = null;
-                }
-
-                elfMagic.classList.remove('hidden');
-                elfMagic.style.background = 'url("elf-magic.png") center bottom / 100% auto no-repeat';
-               
+        let f = 0;
+        const anim = setInterval(() => {
+            f++;
+            if (f >= 36) {
+                clearInterval(anim);
                 setTimeout(() => {
-                    elfMagic.style.opacity = '1';
-                    if (magicSound) {
-                        magicSound.currentTime = 0;
-                        magicSound.play().catch(e => console.log('Помилка відтворення магічного звуку'));
-                    }
-                }, 100);
+                    elfMagic.style.opacity = 0;
+                    hint.innerHTML = 'Я передав твоє бажання Санті!<br><br><button onclick="location.reload()" style="padding:15px 50px;font-size:1.6em;background:#27ae60;border:none;border-radius:50px;cursor:pointer">Розпочати знову</button>';
+                }, 1000);
+            } else {
+                elfMagic.style.backgroundPosition = `center ${-f * (100/36)}%`;
+            }
+        }, 80);
+    };
 
-                hint.textContent = "Я передав твоє бажання Санті! Вітаю з Різдвом!";
-
-                let f = 0;
-                const anim = setInterval(() => {
-                    f++;
-                    if (f >= 36) {
-                        clearInterval(anim);
-                        setTimeout(() => {
-                            elfMagic.style.opacity = '0';
-                            hint.innerHTML = 'Я передав твоє бажання Санті!<br><br>';
-                           
-                            const restartBtn = document.createElement('button');
-                            restartBtn.textContent = 'Розпочати знову';
-                            restartBtn.style.cssText = 'padding:15px 50px;font-size:1.6em;background:#27ae60;border:none;border-radius:50px;cursor:pointer';
-                            restartBtn.onclick = () => location.reload();
-                            hint.appendChild(restartBtn);
-                        }, 1200);
-                    } else {
-                        elfMagic.style.backgroundPosition = `center ${-f * (100 / 36)}%`;
-                    }
-                }, 80);
-            };
-
-            loading.classList.add('hidden');
-
-        } catch (e) {
-            console.error('Помилка запуску AR:', e);
-            loading.classList.add('hidden');
-            alert('Не вдалося отримати доступ до камери. Увімкніть дозвіл.');
-           
-            document.getElementById('arContainer').classList.add('hidden');
-            document.getElementById('startScreen').classList.remove('hidden');
-        }
-    });
-
-    // Очищення при закритті
-    window.addEventListener('beforeunload', () => {
-        if (idleInterval) {
-            clearInterval(idleInterval);
-        }
-    });
+    document.getElementById('loading').classList.add('hidden');
+};
 </script>
 </body>
 </html>
