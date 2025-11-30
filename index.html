@@ -38,7 +38,7 @@
 </div>
 
 <script type="module">
-    // ✅ Сумісна версія three.js для MindAR 1.2.3
+    // ✅ Правильні імпорти — повні URL без пробілів
     import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.module.js';
     import {MindARThree} from 'https://cdn.jsdelivr.net/npm/mind-ar@1.2.3/dist/mindar-image-three.prod.js';
 
@@ -99,7 +99,6 @@
         anchor2.onTargetFound = () => {
             if (step !== 1) return;
 
-            // Піднімаємо звук на 1 метр
             const audioHolder = new THREE.Group();
             audioHolder.position.set(0, 1, 0);
             anchor2.group.add(audioHolder);
@@ -110,7 +109,6 @@
             step = 2;
         };
 
-        // Анімація idle
         let frame = 0;
         setInterval(() => {
             if (parseFloat(elfIdle.style.opacity) > 0) {
@@ -161,7 +159,6 @@
                     clearInterval(anim);
                     setTimeout(() => {
                         elfMagic.style.opacity = '0';
-                        // ✅ Безпечне створення кнопки
                         hint.innerHTML = 'Я передав твоє бажання Санті!<br><br>';
                         const restartBtn = document.createElement('button');
                         restartBtn.textContent = 'Розпочати знову';
@@ -179,7 +176,7 @@
             await mindarThree.start();
         } catch (e) {
             console.error('Помилка запуску AR:', e);
-            alert('Не вдалося отримати доступ до камери. Увімкніть дозвіл.');
+            alert('Не вдалося отримати доступ до камери.');
         }
     });
 </script>
