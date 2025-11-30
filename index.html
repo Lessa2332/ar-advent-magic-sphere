@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Передай лист Санті</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎄</text></svg>">
     
-    <!-- ПЕРЕНЕСЕНО SCRIPTS В HEAD -->
     <script src="https://cdn.jsdelivr.net/npm/aframe@1.4.2/dist/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
     
@@ -127,8 +127,9 @@
 <div id="loading" class="loading hidden">Завантаження...</div>
 
 <script>
-    let audioEntity, magicSound, waitingSound;
+    let waitingSound, magicSound;
     let step = 0;
+    let isSoundPlaying = false;
     const hint = document.getElementById('hint');
     const sendBtn = document.getElementById('sendBtn');
     const elfIdle = document.getElementById('elfIdle');
@@ -142,6 +143,29 @@
             return response.ok;
         } catch {
             return false;
+        }
+    }
+    
+    // Функція для відтворення звуку
+    function playWaitingSound() {
+        if (!waitingSound || isSoundPlaying) return;
+        
+        try {
+            waitingSound.currentTime = 0;
+            waitingSound.play();
+            isSoundPlaying = true;
+            console.log("Звук запущено");
+        } catch (error) {
+            console.error("Помилка відтворення звуку:", error);
+        }
+    }
+    
+    // Функція для зупинки звуку
+    function stopWaitingSound() {
+        if (waitingSound && isSoundPlaying) {
+            waitingSound.pause();
+            isSoundPlaying = false;
+            console.log("Звук зупинено");
         }
     }
     
@@ -175,17 +199,13 @@
         }
         
         try {
-            // Ініціалізація аудіо з обробкою помилок
-            try {
-                magicSound = new Audio('magic-sound.mp3');
-                magicSound.volume = 0.9;
-                
-                waitingSound = new Audio('waiting.mp3');
-                waitingSound.loop = true;
-                waitingSound.volume = 0.7;
-            } catch (e) {
-                console.warn('Не вдалося завантажити аудіофайли:', e);
-            }
+            // Ініціалізація аудіо
+            waitingSound = new Audio('waiting.mp3');
+            waitingSound.loop = true;
+            waitingSound.volume = 0.7;
+            
+            magicSound = new Audio('magic-sound.mp3');
+            magicSound.volume = 0.9;
             
             // Створюємо A-Scene
             const sceneEl = document.createElement('a-scene');
@@ -210,12 +230,6 @@
             anchor2.setAttribute('mindar-image-target', 'targetIndex: 1');
             sceneEl.appendChild(anchor2);
 
-            // Додаємо звукову підказку для A-Frame (не обов'язково)
-            audioEntity = document.createElement('a-entity');
-            audioEntity.setAttribute('position', '0 1 0');
-            audioEntity.setAttribute('sound', 'src: waiting.mp3; autoplay: false; loop: true; positional: true;');
-            anchor2.appendChild(audioEntity);
-
             anchor1.addEventListener('targetFound', () => {
                 if (step === 0) {
                     step = 1;
@@ -226,37 +240,23 @@
             anchor2.addEventListener('targetFound', () => {
                 if (step !== 1) return;
                 
-                console.log("Маркер 2 знайдено, намагаємося відтворити звук");
-                
-                // Використовуємо стандартний Audio замість A-Frame sound
-                setTimeout(() => {
-                    try {
-                        if (waitingSound) {
-                            waitingSound.currentTime = 0;
-                            waitingSound.play();
-                            console.log("Звук успішно запущено");
-                        } else if (audioEntity.components.sound) {
-                            audioEntity.components.sound.play();
-                        }
-                    } catch (error) {
-                        console.error("Помилка відтворення звуку:", error);
-                    }
-                }, 100);
+                console.log("Маркер 2 знайдено");
+                playWaitingSound();
                 
                 hint.textContent = "Я тут, чекаю твого листа…";
                 step = 2;
             });
 
             anchor2.addEventListener('targetLost', () => {
-                // Пауза звуку коли маркер втрачено
-                if (waitingSound) {
-                    waitingSound.pause();
-                }
+                console.log("Маркер 2 втрачено");
+                // НЕ зупиняємо звук - він грає постійно поки не натиснута кнопка
             });
 
             // Відстеження відстані до ельфа
             sceneEl.addEventListener('renderstart', () => {
                 const camera = sceneEl.camera;
+                let elfVisible = false;
+                
                 const update = () => {
                     if (step === 2 && anchor2.object3D.visible) {
                         const dist = camera.position.distanceTo(anchor2.object3D.getWorldPosition(new THREE.Vector3()));
@@ -264,14 +264,26 @@
                         // Оновлюємо гучність звуку на основі відстані
                         if (waitingSound) {
                             const volume = Math.max(0.1, 1 - dist/5);
-                            waitingSound.volume = volume * 0.7; // базовий volume 0.7
+                            waitingSound.volume = volume * 0.7;
                         }
 
-                        if (dist < 0.5 && elfIdle.style.opacity === '0') {
-                            elfIdle.classList.remove('hidden');
-                            elfIdle.style.background = 'url("elf-idle.png") center bottom / 100% auto no-repeat';
-                            setTimeout(() => elfIdle.style.opacity = '1', 100);
-                            sendBtn.style.display = 'block';
+                        // Перевіряємо чи дитина підійшла ближче 50 см
+                        if (dist < 0.5) {
+                            if (!elfVisible) {
+                                elfVisible = true;
+                                elfIdle.classList.remove('hidden');
+                                elfIdle.style.background = 'url("elf-idle.png") center bottom / 100% auto no-repeat';
+                                setTimeout(() => elfIdle.style.opacity = '1', 100);
+                                sendBtn.style.display = 'block';
+                                console.log("Ельф з'явився - відстань:", dist.toFixed(2) + "м");
+                            }
+                        } else {
+                            if (elfVisible) {
+                                elfVisible = false;
+                                elfIdle.style.opacity = '0';
+                                sendBtn.style.display = 'none';
+                                console.log("Ельф сховався - відстань:", dist.toFixed(2) + "м");
+                            }
                         }
                     }
                     requestAnimationFrame(update);
@@ -293,13 +305,8 @@
                 sendBtn.style.display = 'none';
                 elfIdle.style.opacity = '0';
                 
-                // Зупиняємо звук правильно
-                if (waitingSound) {
-                    waitingSound.pause();
-                }
-                if (audioEntity && audioEntity.components.sound) {
-                    audioEntity.components.sound.stop();
-                }
+                // Зупиняємо звук очікування
+                stopWaitingSound();
                 
                 clearInterval(idleInterval);
                 elfMagic.classList.remove('hidden');
