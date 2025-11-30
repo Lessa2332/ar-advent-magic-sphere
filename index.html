@@ -4,19 +4,131 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Передай лист Санті</title>
+    
+    <!-- ✅ Завантажуємо Three.js та MindAR як глобальні скрипти -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.3/dist/mindar-image.prod.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.3/dist/mindar-image-three.prod.js"></script>
+    
     <style>
-        body { margin:0; overflow:hidden; background:#0a1e3a; color:white; font-family:sans-serif; }
-        .hidden { display:none !important; }
-        #startScreen { position:fixed; inset:0; background:linear-gradient(135deg,#0f3443,#1e5a7e); display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center; padding:20px; z-index:100; }
-        h1 { font-size:2.8em; color:#ffd700; text-shadow:0 0 20px gold; margin-bottom:20px; }
-        button { background:#e74c3c; color:white; border:none; padding:18px 50px; font-size:1.6em; border-radius:50px; margin-top:30px; box-shadow:0 10px 30px rgba(231,76,60,.6); cursor:pointer; transition:0.2s; }
-        button:active { transform:scale(0.95); }
-        #arContainer { position:fixed; inset:0; }
-        #hint { position:absolute; top:15px; left:50%; transform:translateX(-50%); background:#000000cc; padding:12px 30px; border-radius:20px; font-size:1.7em; z-index:10; pointer-events:none; text-align:center; max-width:90%; }
-        #sendBtn { position:absolute; bottom:90px; left:50%; transform:translateX(-50%); padding:20px 60px; font-size:2em; background:#27ae60; border-radius:50px; z-index:20; display:none; }
-        #elfIdle, #elfMagic { position:absolute; bottom:0; left:50%; transform:translateX(-50%); width:85vw; max-width:400px; height:auto; max-height:75vh; background-size:100% auto; background-repeat:no-repeat; background-position:center bottom; pointer-events:none; opacity:0; transition:opacity 1.3s ease; z-index:5; }
-        #elfMagic { z-index:6; }
-        .loading { position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); font-size:1.8em; background:#000000dd; padding:20px 40px; border-radius:20px; z-index:999; }
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            background: #0a1e3a; 
+            color: white; 
+            font-family: sans-serif; 
+        }
+        .hidden { display: none !important; }
+        
+        #startScreen { 
+            position: fixed; 
+            inset: 0; 
+            background: linear-gradient(135deg, #0f3443, #1e5a7e); 
+            display: flex; 
+            flex-direction: column; 
+            justify-content: center; 
+            align-items: center; 
+            text-align: center; 
+            padding: 20px; 
+            z-index: 100; 
+        }
+        h1 { 
+            font-size: 2.8em; 
+            color: #ffd700; 
+            text-shadow: 0 0 20px gold; 
+            margin-bottom: 20px; 
+        }
+        
+        button { 
+            background: #e74c3c; 
+            color: white; 
+            border: none; 
+            padding: 18px 50px; 
+            font-size: 1.6em; 
+            border-radius: 50px; 
+            margin-top: 30px; 
+            box-shadow: 0 10px 30px rgba(231,76,60,.6); 
+            cursor: pointer; 
+            transition: 0.2s; 
+        }
+        button:active { transform: scale(0.95); }
+        
+        #arContainer { position: fixed; inset: 0; }
+        
+        #hint { 
+            position: absolute; 
+            top: 15px; 
+            left: 50%; 
+            transform: translateX(-50%); 
+            background: #000000cc; 
+            padding: 12px 30px; 
+            border-radius: 20px; 
+            font-size: 1.7em; 
+            z-index: 10; 
+            pointer-events: none; 
+            text-align: center;
+            width: auto; 
+            max-width: 90%; 
+            padding-bottom: 20px;
+        } 
+
+        #sendBtn { 
+            position: absolute; 
+            bottom: 90px; 
+            left: 50%; 
+            transform: translateX(-50%); 
+            padding: 20px 60px; 
+            font-size: 2em; 
+            background: #27ae60; 
+            border-radius: 50px; 
+            z-index: 20; 
+            display: none; 
+        }
+        
+        #elfIdle, #elfMagic {
+            position: absolute; 
+            bottom: 0; 
+            left: 50%; 
+            transform: translateX(-50%);
+            width: 85vw; 
+            max-width: 400px; 
+            height: auto; 
+            max-height: 75vh;
+            background-size: 100% auto; 
+            background-repeat: no-repeat; 
+            background-position: center bottom;
+            pointer-events: none; 
+            opacity: 0; 
+            transition: opacity 1.3s ease; 
+            z-index: 5;
+        }
+        #elfMagic { z-index: 6; }
+        
+        .loading { 
+            position: fixed; 
+            top: 50%; 
+            left: 50%; 
+            transform: translate(-50%, -50%); 
+            font-size: 1.5em; 
+            z-index: 999; 
+            background: #000000cc;
+            padding: 20px;
+            border-radius: 10px;
+        }
+        
+        .error { 
+            position: fixed; 
+            top: 50%; 
+            left: 50%; 
+            transform: translate(-50%, -50%); 
+            background: #c0392b; 
+            color: white; 
+            padding: 20px; 
+            border-radius: 10px; 
+            text-align: center; 
+            z-index: 1000;
+            max-width: 80%;
+        }
     </style>
 </head>
 <body>
@@ -36,123 +148,242 @@
 
 <div id="loading" class="loading hidden">Завантаження...</div>
 
-<!-- 100% РОБОЧІ БІБЛІОТЕКИ (UMD) -->
-<script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image.prod.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-three.prod.js"></script>
-
 <script>
-document.getElementById('startBtn').addEventListener('click', async () => {
-    if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
-        alert('Потрібен HTTPS!');
-        return;
-    }
-
-    document.getElementById('startScreen').classList.add('hidden');
-    document.getElementById('arContainer').classList.remove('hidden');
-    document.getElementById('loading').classList.remove('hidden');
-
-    const required = ['targets.mind', 'elf-idle.png', 'elf-magic.png', 'waiting.mp3', 'magic-sound.mp3'];
-    for (const file of required) {
-        try { await fetch(file, {method: 'HEAD'}); } 
-        catch { alert(`Не знайдено файл: ${file}`); location.reload(); return; }
-    }
-
-    const mindarThree = new window.MINDAR.IMAGE.MindARThree({
-        container: document.getElementById('arContainer'),
-        imageTargetSrc: 'targets.mind',
-        uiLoading: 'no',
-        uiScanning: 'no'
-    });
-
-    const {renderer, scene, camera} = mindarThree;
-    const listener = new THREE.AudioListener();
-    camera.add(listener);
-
-    const posAudio = new THREE.PositionalAudio(listener);
-    posAudio.setRefDistance(0.8);
-    posAudio.setMaxDistance(10);
-    posAudio.setLoop(true);
-    posAudio.setBuffer(await new THREE.AudioLoader().loadAsync('waiting.mp3'));
-
-    let magicSound = new Audio('magic-sound.mp3');
-    magicSound.volume = 0.9;
-
-    const anchor1 = mindarThree.addAnchor(0);
-    const anchor2 = mindarThree.addAnchor(1);
+    // ✅ Глобальні змінні
+    let mindarThree = null;
+    let anchor2 = null;
+    let posAudio = null;
+    let magicSound = null;
     let step = 0;
+    let idleInterval = null;
 
+    // ✅ DOM елементи
     const hint = document.getElementById('hint');
     const sendBtn = document.getElementById('sendBtn');
     const elfIdle = document.getElementById('elfIdle');
     const elfMagic = document.getElementById('elfMagic');
+    const loading = document.getElementById('loading');
+    const startBtn = document.getElementById('startBtn');
 
-    anchor1.onTargetFound = () => { if (step === 0) { step = 1; hint.textContent = "Чудово! Тепер зірочку!"; } };
-    anchor2.onTargetFound = () => {
-        if (step !== 1) return;
-        const lift = new THREE.Group(); lift.position.y = 1.0; anchor2.group.add(lift);
-        const audioLift = new THREE.Group(); audioLift.position.y = 1.0; audioLift.add(posAudio); anchor2.group.add(audioLift);
-        posAudio.play();
-        hint.textContent = "Я тут, чекаю твого листа…";
-        step = 2;
-    };
+    // ✅ Функція для показу помилок
+    function showError(message) {
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'error';
+        errorDiv.innerHTML = `
+            ${message}
+            <br><br>
+            <button onclick="location.reload()" style="padding:10px 20px; background:white; color:#c0392b; border:none; border-radius:5px; cursor:pointer;">
+                Спробувати знову
+            </button>
+        `;
+        document.body.appendChild(errorDiv);
+    }
 
-    let frame = 0;
-    const idleAnim = setInterval(() => {
-        if (elfIdle.style.opacity > 0) {
-            frame = (frame + 1) % 30;
-            elfIdle.style.backgroundPosition = `center ${-frame * (100/30)}%`;
+    // ✅ Функція перевірки ресурсів
+    async function checkResource(url) {
+        try {
+            const response = await fetch(url, { method: 'HEAD' });
+            return response.ok;
+        } catch {
+            return false;
         }
-    }, 100);
+    }
 
-    renderer.setAnimationLoop(() => {
-        if (step === 2 && anchor2.group) {
-            const camPos = new THREE.Vector3(); camera.getWorldPosition(camPos);
-            const elfPos = anchor2.group.getWorldPosition(new THREE.Vector3()); elfPos.y += 1.0;
-            const dist = camPos.distanceTo(elfPos);
-            posAudio.setVolume(Math.max(0.1, 1 - dist/5));
+    // ✅ Функція для створення аудіо з обробкою помилок
+    function createAudio(src) {
+        return new Promise((resolve) => {
+            const audio = new Audio();
+            audio.oncanplaythrough = () => resolve(audio);
+            audio.onerror = () => {
+                console.warn('Не вдалося завантажити аудіо:', src);
+                resolve(null);
+            };
+            audio.src = src;
+        });
+    }
 
-            if (dist < 0.5 && elfIdle.style.opacity == 0) {
-                elfIdle.style.background = 'url("elf-idle.png") center bottom / 100% auto no-repeat';
-                elfIdle.style.opacity = 1;
-                sendBtn.style.display = 'block';
+    // ✅ Головна функція ініціалізації
+    async function initializeAR() {
+        // Перевірка на HTTPS
+        if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
+            showError('Цей додаток працює лише через HTTPS або localhost.');
+            return;
+        }
+
+        // Перевірка наявності MindAR
+        if (typeof MindARThree === 'undefined') {
+            showError('Помилка завантаження AR бібліотеки. Перевірте інтернет-з\'єднання.');
+            return;
+        }
+
+        document.getElementById('startScreen').classList.add('hidden');
+        document.getElementById('arContainer').classList.remove('hidden');
+        loading.classList.remove('hidden');
+
+        // Перевірка наявності критичних ресурсів
+        const requiredResources = ['targets.mind', 'elf-idle.png', 'elf-magic.png'];
+        
+        for (const resource of requiredResources) {
+            const exists = await checkResource(resource);
+            if (!exists) {
+                showError(`Файл ${resource} не знайдено! Переконайтесь, що всі файли завантажені.`);
+                return;
             }
         }
-        renderer.render(scene, camera);
-    });
 
-    sendBtn.onclick = () => {
-        sendBtn.style.display = 'none';
-        elfIdle.style.opacity = 0;
-        clearInterval(idleAnim);
-        if (posAudio.isPlaying) posAudio.stop();
+        try {
+            // Завантаження аудіо
+            magicSound = await createAudio('magic-sound.mp3');
+            if (magicSound) magicSound.volume = 0.9;
 
-        elfMagic.style.background = 'url("elf-magic.png") center bottom / 100% auto no-repeat';
-        elfMagic.style.opacity = 1;
+            // Ініціалізація MindAR
+            mindarThree = new MindARThree({
+                container: document.getElementById('arContainer'),
+                imageTargetSrc: 'targets.mind',
+                uiLoading: 'no',
+                uiScanning: 'no',
+                maxTrack: 2
+            });
 
-        magicSound.currentTime = 0;
-        magicSound.play();
+            const { renderer, scene, camera } = mindarThree;
 
-        hint.textContent = "Я передав твоє бажання Санті! Вітаю з Різдвом!";
+            // Налаштування Positional Audio
+            const listener = new THREE.AudioListener();
+            camera.add(listener);
 
-        let f = 0;
-        const anim = setInterval(() => {
-            f++;
-            if (f >= 36) {
-                clearInterval(anim);
+            posAudio = new THREE.PositionalAudio(listener);
+            posAudio.setRefDistance(0.8);
+            posAudio.setMaxDistance(10);
+            posAudio.setLoop(true);
+
+            // Завантаження фонового аудіо
+            try {
+                const audioLoader = new THREE.AudioLoader();
+                const buffer = await audioLoader.loadAsync('waiting.mp3');
+                posAudio.setBuffer(buffer);
+            } catch (e) {
+                console.warn('Не вдалося завантажити waiting.mp3:', e);
+            }
+
+            // Створення якорів
+            const anchor1 = mindarThree.addAnchor(0); // дзвіночок
+            anchor2 = mindarThree.addAnchor(1);      // зірочка
+
+            anchor1.onTargetFound = () => {
+                if (step === 0) {
+                    step = 1;
+                    hint.textContent = "Чудово! Тепер зірочку!";
+                }
+            };
+
+            anchor2.onTargetFound = () => {
+                if (step !== 1) return;
+
+                const audioHolder = new THREE.Group();
+                audioHolder.position.set(0, 1, 0);
+                anchor2.group.add(audioHolder);
+                audioHolder.add(posAudio);
+
+                posAudio.setVolume(0.3);
+                posAudio.play();
+                hint.textContent = "Я тут, чекаю твого листа…";
+                step = 2;
+            };
+
+            // Анімація idle ельфа
+            let frame = 0;
+            idleInterval = setInterval(() => {
+                if (parseFloat(elfIdle.style.opacity) > 0) {
+                    frame = (frame + 1) % 24;
+                    elfIdle.style.backgroundPosition = `center ${-frame * (100 / 24)}%`;
+                }
+            }, 120);
+
+            // Головний цикл рендерингу
+            renderer.setAnimationLoop(() => {
+                if (step === 2 && anchor2 && anchor2.group) {
+                    const camPos = new THREE.Vector3();
+                    camera.getWorldPosition(camPos);
+
+                    const elfPos = anchor2.group.getWorldPosition(new THREE.Vector3());
+                    elfPos.y += 1;
+
+                    const dist = camPos.distanceTo(elfPos);
+                    posAudio.setVolume(THREE.MathUtils.clamp(1 - dist / 5, 0.1, 1));
+
+                    if (dist < 0.5 && elfIdle.style.opacity === '0') {
+                        elfIdle.classList.remove('hidden');
+                        elfIdle.style.background = 'url("elf-idle.png") center bottom / 100% auto no-repeat';
+                        setTimeout(() => elfIdle.style.opacity = '1', 100);
+                        sendBtn.style.display = 'block';
+                    }
+                }
+                renderer.render(scene, camera);
+            });
+
+            // Обробник відправки листа
+            sendBtn.onclick = () => {
+                sendBtn.style.display = 'none';
+                elfIdle.style.opacity = '0';
+                if (posAudio) posAudio.pause();
+                if (idleInterval) clearInterval(idleInterval);
+
+                elfMagic.classList.remove('hidden');
+                elfMagic.style.background = 'url("elf-magic.png") center bottom / 100% auto no-repeat';
+                
                 setTimeout(() => {
-                    elfMagic.style.opacity = 0;
-                    hint.innerHTML = 'Я передав твоє бажання Санті!<br><br><button onclick="location.reload()" style="padding:15px 50px;font-size:1.6em;background:#27ae60;border:none;border-radius:50px;cursor:pointer">Розпочати знову</button>';
-                }, 1000);
-            } else {
-                elfMagic.style.backgroundPosition = `center ${-f * (100/36)}%`;
-            }
-        }, 80);
-    };
+                    elfMagic.style.opacity = '1';
+                    if (magicSound) {
+                        magicSound.currentTime = 0;
+                        magicSound.play();
+                    }
+                }, 100);
 
-    await mindarThree.start();
-    document.getElementById('loading').classList.add('hidden');
-});
+                hint.textContent = "Я передав твоє бажання Санті! Вітаю з Різдвом!";
+
+                let f = 0;
+                const anim = setInterval(() => {
+                    f++;
+                    if (f >= 36) {
+                        clearInterval(anim);
+                        setTimeout(() => {
+                            elfMagic.style.opacity = '0';
+                            hint.innerHTML = 'Я передав твоє бажання Санті!<br><br>';
+                            
+                            const restartBtn = document.createElement('button');
+                            restartBtn.textContent = 'Розпочати знову';
+                            restartBtn.style.cssText = 'padding:15px 50px;font-size:1.6em;background:#27ae60;border:none;border-radius:50px;cursor:pointer';
+                            restartBtn.onclick = () => location.reload();
+                            hint.appendChild(restartBtn);
+                        }, 1200);
+                    } else {
+                        elfMagic.style.backgroundPosition = `center ${-f * (100 / 36)}%`;
+                    }
+                }, 80);
+            };
+
+            // Запуск AR
+            await mindarThree.start();
+            loading.classList.add('hidden');
+
+        } catch (e) {
+            console.error('Помилка запуску AR:', e);
+            loading.classList.add('hidden');
+            showError('Не вдалося отримати доступ до камери. Увімкніть дозвіл камери та перезавантажте сторінку.');
+        }
+    }
+
+    // ✅ Обробник кнопки старту
+    startBtn.addEventListener('click', initializeAR);
+
+    // ✅ Очищення ресурсів при закритті
+    window.addEventListener('beforeunload', () => {
+        if (idleInterval) clearInterval(idleInterval);
+        if (mindarThree) {
+            mindarThree.stop();
+            mindarThree = null;
+        }
+    });
 </script>
 </body>
 </html>
