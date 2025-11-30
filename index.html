@@ -1,56 +1,425 @@
 <!DOCTYPE html>
 <html lang="uk">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Передай лист Санті</title>
-
-  <!-- CSP без unsafe-inline — тепер все працює! -->
-  <meta http-equiv="Content-Security-Policy" content="
-    default-src 'self';
-    script-src 'self' https://cdn.jsdelivr.net;
-    img-src 'self' https: data:;
-    media-src 'self' https:;
-    connect-src 'self';
-    style-src 'self' 'unsafe-inline';
-    object-src 'none';
-  ">
-
-  <script src="https://cdn.jsdelivr.net/npm/three@0.168.0/build/three.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/mindar-image-three@1.2.5/prod/mindar-image-three.prod.js"></script>
-  <script src="app.js" type="module"></script>  <!-- Новий рядок! -->
-
-  <style>
-    /* Твій CSS без змін */
-    body { margin:0; overflow:hidden; background:#0a1e3a; font-family:sans-serif; }
-    #start, #loading { position:fixed; inset:0; background:linear-gradient(135deg,#0f3443,#1e5a7e);
-      display:flex; flex-direction:column; justify-content:center; align-items:center; color:white; z-index:100; text-align:center; }
-    h1 { font-size:2.8em; color:#ffd700; text-shadow:0 0 20px gold; margin-bottom:20px; }
-    button { background:#e74c3c; color:white; border:none; padding:18px 50px; font-size:1.6em;
-      border-radius:50px; cursor:pointer; box-shadow:0 10px 30px rgba(231,76,60,.6); transition:.2s; }
-    button:hover { transform:scale(1.05); }
-    button:active { transform:scale(0.95); }
-    #hint { position:absolute; top:15px; left:50%; transform:translateX(-50%);
-      background:#000000cc; padding:12px 30px; border-radius:20px; font-size:1.7em; z-index:10; pointer-events:none; }
-    #sendBtn { position:absolute; bottom:90px; left:50%; transform:translateX(-50%);
-      background:#27ae60; padding:20px 60px; font-size:2em; border-radius:50px; z-index:20; display:none; }
-    .hidden { display:none !important; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Передай лист Санті</title>
+    
+    <!-- MindAR 3.0 + Three.js (CSP-safe версії) -->
+    <script src="https://cdn.jsdelivr.net/npm/mind-ar@3.1.5/dist/mindar-image-three.prod.js"></script>
+    
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #0a1e3a;
+            font-family: 'Arial', sans-serif;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        
+        #startScreen, #loading {
+            position: fixed;
+            inset: 0;
+            background: linear-gradient(135deg, #0f3443, #1e5a7e);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            color: white;
+            z-index: 1000;
+            padding: 20px;
+        }
+        
+        h1 {
+            font-size: 2.5em;
+            color: #ffd700;
+            text-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+            margin-bottom: 20px;
+        }
+        
+        .start-button {
+            background: #e74c3c;
+            color: white;
+            border: none;
+            padding: 18px 50px;
+            font-size: 1.4em;
+            border-radius: 50px;
+            box-shadow: 0 10px 30px rgba(231, 76, 60, 0.6);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 20px;
+        }
+        
+        .start-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 40px rgba(231, 76, 60, 0.8);
+        }
+        
+        .start-button:active {
+            transform: scale(0.95);
+        }
+        
+        #hint {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px 30px;
+            border-radius: 25px;
+            font-size: 1.4em;
+            z-index: 100;
+            pointer-events: none;
+            max-width: 90%;
+            text-align: center;
+            color: white;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        #sendBtn {
+            position: absolute;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #27ae60;
+            color: white;
+            border: none;
+            padding: 20px 60px;
+            font-size: 1.6em;
+            border-radius: 50px;
+            z-index: 100;
+            display: none;
+            cursor: pointer;
+            box-shadow: 0 10px 30px rgba(39, 174, 96, 0.6);
+            transition: all 0.3s ease;
+        }
+        
+        #sendBtn:hover {
+            transform: translateX(-50%) translateY(-2px);
+            box-shadow: 0 15px 40px rgba(39, 174, 96, 0.8);
+        }
+        
+        .hidden {
+            display: none !important;
+        }
+        
+        #arContainer {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+        
+        #restartBtn {
+            margin-top: 20px;
+            padding: 15px 40px;
+            font-size: 1.2em;
+            background: #3498db;
+            border: none;
+            border-radius: 50px;
+            color: white;
+            cursor: pointer;
+            pointer-events: auto;
+        }
+        
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid rgba(255, 255, 255, 0.3);
+            border-top: 5px solid #ffd700;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* Адаптивність для мобільних пристроїв */
+        @media (max-width: 768px) {
+            h1 { font-size: 2em; }
+            #hint { font-size: 1.2em; padding: 12px 20px; }
+            .start-button, #sendBtn { font-size: 1.2em; padding: 15px 40px; }
+        }
+    </style>
 </head>
 <body>
 
-  <div id="start">
-    <h1>Передай лист Санті</h1>
-    <p>Напиши бажання на папері — і віддай його ельфу!</p>
-    <button id="startBtn">Почати</button>
-  </div>
+<div id="startScreen">
+    <h1>🎄 Передай лист Санті ✨</h1>
+    <p>Напиши бажання на папері та покажи його ельфу через камеру!</p>
+    <p><small>Знайди дзвіночок, потім зірочку - і передай лист!</small></p>
+    <button class="start-button" id="startBtn">Почати пригоду</button>
+</div>
 
-  <div id="loading" class="hidden">Завантаження...</div>
-  <div id="hint">Знайди слід Ельфа!</div>
-  <button id="sendBtn">Відправити лист</button>
+<div id="loading" class="hidden">
+    <div class="loading-spinner"></div>
+    <p>Завантаження магії...</p>
+</div>
 
-  <!-- Ніякого inline JS! -->
+<div id="hint">Знайди дзвіночок!</div>
+<button id="sendBtn">📮 Відправити лист</button>
 
+<div id="arContainer"></div>
+
+<script>
+    class SantaLetterAR {
+        constructor() {
+            this.step = 0;
+            this.engine = null;
+            this.scene = null;
+            this.elf = null;
+            this.isElfNear = false;
+            
+            this.hint = document.getElementById('hint');
+            this.sendBtn = document.getElementById('sendBtn');
+            this.startBtn = document.getElementById('startBtn');
+            this.arContainer = document.getElementById('arContainer');
+            
+            this.initEventListeners();
+        }
+        
+        initEventListeners() {
+            this.startBtn.addEventListener('click', () => this.startAR());
+            this.sendBtn.addEventListener('click', () => this.sendLetter());
+        }
+        
+        async startAR() {
+            document.getElementById('startScreen').classList.add('hidden');
+            document.getElementById('loading').classList.remove('hidden');
+            
+            try {
+                await this.initializeAR();
+                document.getElementById('loading').classList.add('hidden');
+            } catch (error) {
+                console.error('Помилка ініціалізації AR:', error);
+                this.hint.textContent = 'Помилка завантаження AR. Перезавантаж сторінку.';
+            }
+        }
+        
+        async initializeAR() {
+            // Ініціалізація MindAR
+            this.engine = new MindARThree.ImageTargetEngine({
+                imageTargetSrc: 'https://raw.githubusercontent.com/hiukim/mind-ar-js/master/examples/image-tracking/assets/card-example/card.mind',
+                maxTrack: 2,
+                filterMinCF: 0.001,
+                filterBeta: 1000,
+            });
+            
+            const { renderer, scene, camera } = await this.engine.setupScene();
+            this.scene = scene;
+            this.renderer = renderer;
+            this.camera = camera;
+            
+            this.arContainer.appendChild(renderer.domElement);
+            
+            // Створення 3D об'єктів
+            this.create3DObjects();
+            
+            // Запуск рендерингу
+            this.startRendering();
+        }
+        
+        create3DObjects() {
+            // Дзвіночок (Target 0)
+            const bellGeometry = new THREE.SphereGeometry(0.3, 16, 16);
+            const bellMaterial = new THREE.MeshPhongMaterial({ 
+                color: 0xffd700,
+                transparent: true,
+                opacity: 0.8
+            });
+            const bell = new THREE.Mesh(bellGeometry, bellMaterial);
+            
+            const bellAnchor = this.engine.createImageTargetAnchor(0);
+            bellAnchor.group.add(bell);
+            this.scene.add(bellAnchor.group);
+            
+            bellAnchor.onTargetFound = () => {
+                if (this.step === 0) {
+                    this.step = 1;
+                    this.hint.textContent = "Чудово! Тепер знайди зірочку!";
+                }
+            };
+            
+            // Зірочка та ельф (Target 1)
+            const starGeometry = new THREE.ConeGeometry(0.2, 0.4, 4);
+            const starMaterial = new THREE.MeshPhongMaterial({ 
+                color: 0xffffff,
+                transparent: true,
+                opacity: 0.9
+            });
+            const star = new THREE.Mesh(starGeometry, starMaterial);
+            
+            // Створення ельфа (проста 3D фігурка)
+            this.createElf();
+            
+            const starAnchor = this.engine.createImageTargetAnchor(1);
+            starAnchor.group.add(star);
+            starAnchor.group.add(this.elf);
+            this.scene.add(starAnchor.group);
+            
+            starAnchor.onTargetFound = () => {
+                if (this.step === 1) {
+                    this.step = 2;
+                    this.hint.textContent = "Я тут! Підійди ближче до ельфа!";
+                    this.startElfAnimation();
+                }
+            };
+            
+            starAnchor.onTargetLost = () => {
+                this.sendBtn.style.display = 'none';
+                this.isElfNear = false;
+            };
+        }
+        
+        createElf() {
+            // Тіло ельфа
+            const bodyGeometry = new THREE.CylinderGeometry(0.3, 0.2, 0.8, 8);
+            const bodyMaterial = new THREE.MeshPhongMaterial({ color: 0x00ff00 });
+            const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+            
+            // Голова ельфа
+            const headGeometry = new THREE.SphereGeometry(0.2, 16, 16);
+            const headMaterial = new THREE.MeshPhongMaterial({ color: 0xffcc99 });
+            const head = new THREE.Mesh(headGeometry, headMaterial);
+            head.position.y = 0.6;
+            
+            // Капелюх
+            const hatGeometry = new THREE.ConeGeometry(0.25, 0.4, 8);
+            const hatMaterial = new THREE.MeshPhongMaterial({ color: 0xff0000 });
+            const hat = new THREE.Mesh(hatGeometry, hatMaterial);
+            hat.position.y = 0.3;
+            head.add(hat);
+            
+            this.elf = new THREE.Group();
+            this.elf.add(body);
+            this.elf.add(head);
+            this.elf.visible = false;
+            this.elf.position.set(1.4, 0.5, -0.8);
+            
+            return this.elf;
+        }
+        
+        startElfAnimation() {
+            const animate = () => {
+                if (this.step === 2 && this.elf.visible) {
+                    // Анімація плавного хиттання
+                    this.elf.rotation.y = Math.sin(Date.now() * 0.002) * 0.1;
+                    this.elf.position.y = 0.5 + Math.sin(Date.now() * 0.003) * 0.05;
+                    
+                    // Перевірка відстані до камери
+                    this.checkCameraDistance();
+                }
+                requestAnimationFrame(animate);
+            };
+            animate();
+        }
+        
+        checkCameraDistance() {
+            if (!this.elf.visible) return;
+            
+            const elfPosition = new THREE.Vector3();
+            this.elf.getWorldPosition(elfPosition);
+            
+            const distance = this.camera.position.distanceTo(elfPosition);
+            const isNear = distance < 1.5;
+            
+            if (isNear && !this.isElfNear) {
+                this.isElfNear = true;
+                this.sendBtn.style.display = 'block';
+                this.hint.textContent = "Натисни кнопку, щоб передати лист!";
+            } else if (!isNear && this.isElfNear) {
+                this.isElfNear = false;
+                this.sendBtn.style.display = 'none';
+                this.hint.textContent = "Підійди ближче до ельфа!";
+            }
+        }
+        
+        startRendering() {
+            const render = () => {
+                this.engine.update();
+                this.renderer.render(this.scene, this.camera);
+                requestAnimationFrame(render);
+            };
+            render();
+        }
+        
+        sendLetter() {
+            this.step = 3;
+            this.sendBtn.style.display = 'none';
+            this.isElfNear = false;
+            
+            // Анімація магії
+            this.playMagicAnimation();
+            
+            this.hint.innerHTML = "✨ Лист відправлено Санті! ✨<br>Бажаю чарівних свят!";
+            
+            setTimeout(() => {
+                this.showRestartButton();
+            }, 3000);
+        }
+        
+        playMagicAnimation() {
+            // Створення частинок магії
+            const particleCount = 50;
+            const particles = new THREE.BufferGeometry();
+            const positions = new Float32Array(particleCount * 3);
+            
+            for (let i = 0; i < particleCount * 3; i += 3) {
+                positions[i] = (Math.random() - 0.5) * 2;
+                positions[i + 1] = (Math.random() - 0.5) * 2;
+                positions[i + 2] = (Math.random() - 0.5) * 2;
+            }
+            
+            particles.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            
+            const particleMaterial = new THREE.PointsMaterial({
+                color: 0xffd700,
+                size: 0.05,
+                transparent: true
+            });
+            
+            const particleSystem = new THREE.Points(particles, particleMaterial);
+            if (this.elf) {
+                this.elf.parent.add(particleSystem);
+            }
+            
+            // Анімація зникнення частинок
+            let opacity = 1;
+            const fadeOut = () => {
+                opacity -= 0.02;
+                particleMaterial.opacity = opacity;
+                
+                if (opacity > 0) {
+                    requestAnimationFrame(fadeOut);
+                } else {
+                    this.scene.remove(particleSystem);
+                }
+            };
+            fadeOut();
+        }
+        
+        showRestartButton() {
+            const restartBtn = document.createElement('button');
+            restartBtn.id = 'restartBtn';
+            restartBtn.textContent = '🔄 Спробувати ще раз';
+            restartBtn.addEventListener('click', () => location.reload());
+            
+            this.hint.appendChild(restartBtn);
+        }
+    }
+    
+    // Ініціалізація додатку при завантаженні сторінки
+    document.addEventListener('DOMContentLoaded', () => {
+        new SantaLetterAR();
+    });
+</script>
 </body>
 </html>
-
