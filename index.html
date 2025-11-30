@@ -4,6 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Передай лист Санті</title>
+    
+    <!-- ПЕРЕНЕСЕНО SCRIPTS В HEAD -->
+    <script src="https://cdn.jsdelivr.net/npm/aframe@1.4.2/dist/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
+    
     <style>
         body {
             margin: 0;
@@ -121,18 +126,8 @@
 </div>
 <div id="loading" class="loading hidden">Завантаження...</div>
 
-<!-- ФІКС ПОРЯДКУ СКРИПТІВ: AFRAME ПЕРШИЙ -->
-<script src="https://cdn.jsdelivr.net/npm/aframe@1.4.2/dist/aframe.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
-
-<!-- ФІКС: Робимо AFRAME глобальним -->
 <script>
-    window.AFRAME = AFRAME;
-</script>
-
-<script>
-    let audioEntity, magicSound;
+    let audioEntity, magicSound, waitingSound;
     let step = 0;
     const hint = document.getElementById('hint');
     const sendBtn = document.getElementById('sendBtn');
@@ -184,8 +179,12 @@
             try {
                 magicSound = new Audio('magic-sound.mp3');
                 magicSound.volume = 0.9;
+                
+                waitingSound = new Audio('waiting.mp3');
+                waitingSound.loop = true;
+                waitingSound.volume = 0.7;
             } catch (e) {
-                console.warn('Не вдалося завантажити magic-sound.mp3:', e);
+                console.warn('Не вдалося завантажити аудіофайли:', e);
             }
             
             // Створюємо A-Scene
@@ -211,10 +210,10 @@
             anchor2.setAttribute('mindar-image-target', 'targetIndex: 1');
             sceneEl.appendChild(anchor2);
 
-            // Піднімаємо звук на 1 метр
+            // Додаємо звукову підказку для A-Frame (не обов'язково)
             audioEntity = document.createElement('a-entity');
             audioEntity.setAttribute('position', '0 1 0');
-            audioEntity.setAttribute('sound', 'src: waiting.mp3; autoplay: false; loop: true; positional: true; distanceModel: inverse; refDistance: 0.8; maxDistance: 10; rolloffFactor: 2');
+            audioEntity.setAttribute('sound', 'src: waiting.mp3; autoplay: false; loop: true; positional: true;');
             anchor2.appendChild(audioEntity);
 
             anchor1.addEventListener('targetFound', () => {
@@ -229,25 +228,30 @@
                 
                 console.log("Маркер 2 знайдено, намагаємося відтворити звук");
                 
-                // Чекаємо поки A-Frame sound компонент буде готовий
+                // Використовуємо стандартний Audio замість A-Frame sound
                 setTimeout(() => {
                     try {
-                        if (audioEntity.components.sound) {
-                            audioEntity.components.sound.play();
+                        if (waitingSound) {
+                            waitingSound.currentTime = 0;
+                            waitingSound.play();
                             console.log("Звук успішно запущено");
+                        } else if (audioEntity.components.sound) {
+                            audioEntity.components.sound.play();
                         }
                     } catch (error) {
                         console.error("Помилка відтворення звуку:", error);
-                        // Альтернативний спосіб
-                        const fallbackAudio = new Audio('waiting.mp3');
-                        fallbackAudio.loop = true;
-                        fallbackAudio.volume = 0.7;
-                        fallbackAudio.play().catch(e => console.warn("Не вдалося відтворити звук:", e));
                     }
                 }, 100);
                 
                 hint.textContent = "Я тут, чекаю твого листа…";
                 step = 2;
+            });
+
+            anchor2.addEventListener('targetLost', () => {
+                // Пауза звуку коли маркер втрачено
+                if (waitingSound) {
+                    waitingSound.pause();
+                }
             });
 
             // Відстеження відстані до ельфа
@@ -256,10 +260,11 @@
                 const update = () => {
                     if (step === 2 && anchor2.object3D.visible) {
                         const dist = camera.position.distanceTo(anchor2.object3D.getWorldPosition(new THREE.Vector3()));
-                        
-                        // Оновлюємо гучність звуку
-                        if (audioEntity.components.sound) {
-                            audioEntity.components.sound.setVolume(Math.max(0.1, 1 - dist/5));
+
+                        // Оновлюємо гучність звуку на основі відстані
+                        if (waitingSound) {
+                            const volume = Math.max(0.1, 1 - dist/5);
+                            waitingSound.volume = volume * 0.7; // базовий volume 0.7
                         }
 
                         if (dist < 0.5 && elfIdle.style.opacity === '0') {
@@ -289,6 +294,9 @@
                 elfIdle.style.opacity = '0';
                 
                 // Зупиняємо звук правильно
+                if (waitingSound) {
+                    waitingSound.pause();
+                }
                 if (audioEntity && audioEntity.components.sound) {
                     audioEntity.components.sound.stop();
                 }
