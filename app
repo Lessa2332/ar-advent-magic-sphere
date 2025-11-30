@@ -55,7 +55,7 @@ document.getElementById('startBtn').onclick = async () => {
   bellAnchor.onTargetFound = () => {
     if (step === 0) {
       step = 1;
-      hint.textContent = "Чудово! Тепер зірочку!";
+      hint.textContent = "Чудово! Тепер другий слід!";
     }
   };
 
@@ -150,4 +150,5 @@ document.getElementById('startBtn').onclick = async () => {
       hint.appendChild(restart);
     }, 4000);
   };
+
 };
