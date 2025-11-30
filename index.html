@@ -1,1 +1,206 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Передай лист Санті</title>
+<style>
+    body { margin:0; overflow:hidden; background:#0a1e3a; color:white; font-family:Arial, sans-serif; }
+    .screen { position:fixed; inset:0; }
+    #startScreen { background:linear-gradient(135deg,#0f3443,#1e5a7e); display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center; padding:20px; z-index:100; }
+    h1 { font-size:2.8em; color:#ffd700; text-shadow:0 0 20px gold; margin-bottom:20px; }
+    p { font-size:1.4em; max-width:90%; line-height:1.5; }
+    button { background:#e74c3c; color:white; border:none; padding:18px 50px; font-size:1.6em; border-radius:50px; margin-top:30px; box-shadow:0 10px 30px rgba(231,76,60,0.6); cursor:pointer; }
+    #arView { width:100%; height:100%; display:block; }
+    #ui { position:absolute; top:0; left:0; width:100%; padding:15px; pointer-events:none; z-index:10; }
+    #lang { position:absolute; top:10px; right:10px; background:#00000099; padding:8px 16px; border-radius:30px; pointer-events:all; font-size:1.1em; }
+    #hint { background:#000000bb; padding:20px; border-radius:20px; text-align:center; font-size:1.8em; }
+    #sendBtn { position:absolute; bottom:100px; left:50%; transform:translateX(-50%); padding:20px 60px; font-size:2em; background:#27ae60; pointer-events:all; border-radius:50px; display:none; z-index:20; }
 
+    /* Два ельфи — один спокійний, другий з магією */
+    #elfIdle, #elfMagic {
+        position:absolute; bottom:0; left:50%; transform:translateX(-50%);
+        width:90%; max-width:420px; height:70vh;
+        background-size: auto 100%; background-repeat:no-repeat;
+        pointer-events:none; opacity:0; transition:opacity 1.5s;
+        z-index:5;
+    }
+    #elfMagic { z-index:6; } /* поверх idle */
+
+    .hidden { display:none !important; }
+</style>
+</head>
+<body>
+
+<div id="startScreen" class="screen">
+    <h1>Передай лист Санті</h1>
+    <p>Напиши бажання на папері — і віддай його ельфу!</p>
+    <button id="startBtn">Почати</button>
+    <div id="lang">
+        <button onclick="setLang('uk')">УКР</button> /
+        <button onclick="setLang('en')">EN</button>
+    </div>
+</div>
+
+<canvas id="arView" class="screen hidden"></canvas>
+
+<div id="ui" class="hidden">
+    <div id="hint">Знайди дзвіночок!</div>
+    <button id="sendBtn">Відправити лист</button>
+    <div id="elfIdle"></div>
+    <div id="elfMagic"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.3/dist/mindar-image-three.prod.js"></script>
+
+<script>
+let lang = 'uk';
+const texts = {
+    uk: { findBell:"Знайди дзвіночок!", findStar:"Чудово! Тепер знайди зірочку!", waiting:"Я тут, чекаю твого листа…", send:"Відправити лист", sent:"Я передав твоє бажання Санті! Вітаю з Різдвом!", again:"Розпочати знову" },
+    en: { findBell:"Find the bell!", findStar:"Great! Now find the star!", waiting:"I’m here, waiting for your letter…", send:"Send letter", sent:"I’ve sent your wish to Santa! Merry Christmas!", again:"Play again" }
+};
+function setLang(l) { lang = l; location.reload(); }
+
+let step = 0; // 0=дзвіночок, 1=зірочка, 2=чекає листа, 3=відправлено
+let mindar, positionalAudio, elfPos = null;
+const hint = document.getElementById('hint');
+const sendBtn = document.getElementById('sendBtn');
+const elfIdle = document.getElementById('elfIdle');
+const elfMagic = document.getElementById('elfMagic');
+
+document.getElementById('startBtn').onclick = async () => {
+    document.getElementById('startScreen').classList.add('hidden');
+    document.getElementById('arView').classList.remove('hidden');
+    document.getElementById('ui').classList.remove('hidden');
+    hint.textContent = texts[lang].findBell;
+    speak(texts[lang].findBell);
+
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    await audioCtx.resume();
+
+    mindar = new window.MINDAR.IMAGE.MindARThree({
+        container: document.getElementById('ui'),
+        imageTargetSrc: './targets.mind',
+        uiLoading: 'no', uiScanning: 'no'
+    });
+
+    const {renderer, scene, camera} = mindar;
+    const listener = new THREE.AudioListener();
+    camera.add(listener);
+
+    positionalAudio = new THREE.PositionalAudio(listener);
+    positionalAudio.setRefDistance(0.8);
+    positionalAudio.setMaxDistance(10);
+    positionalAudio.setRolloffFactor(2);
+    positionalAudio.setLoop(true);
+
+    const buffer = await new THREE.AudioLoader().loadAsync('./waiting.mp3');
+    positionalAudio.setBuffer(buffer);
+
+    const anchorBell = mindar.addAnchor(0); // дзвіночок
+    const anchorStar = mindar.addAnchor(1); // зірочка
+
+    let pos1 = null;
+
+    anchorBell.onTargetFound = () => {
+        if (step !== 0) return;
+        pos1 = new THREE.Vector3().setFromMatrixPosition(anchorBell.group.matrixWorld);
+        step = 1;
+        hint.textContent = texts[lang].findStar;
+        speak(texts[lang].findStar);
+    };
+
+    anchorStar.onTargetFound = () => {
+        if (step !== 1) return;
+        const pos2 = new THREE.Vector3().setFromMatrixPosition(anchorStar.group.matrixWorld);
+        const dir = pos2.clone().sub(pos1).normalize();
+        elfPos = pos2.clone().add(dir.multiplyScalar(3)); // 3 метри вперед
+
+        const group = new THREE.Group();
+        group.position.copy(elfPos);
+        group.add(positionalAudio);
+        scene.add(group);
+
+        positionalAudio.setVolume(0.3);
+        positionalAudio.play();
+        hint.textContent = texts[lang].waiting;
+        speak(texts[lang].waiting);
+        step = 2;
+    };
+
+    // Анімація idle (спокійний ельф)
+    let idleFrame = 0;
+    const idleAnim = setInterval(() => {
+        if (elfIdle.style.opacity > 0) {
+            idleFrame = (idleFrame + 1) % 24; // 24 кадри idle
+            elfIdle.style.backgroundPosition = `0 ${-idleFrame * (100/24)}%`;
+        }
+    }, 120);
+
+    renderer.setAnimationLoop(() => {
+        if (step === 2 && elfPos) {
+            const camPos = new THREE.Vector3();
+            camera.getWorldPosition(camPos);
+            const dist = camPos.distanceTo(elfPos);
+            positionalAudio.setVolume(THREE.MathUtils.clamp(1 - dist/5, 0.1, 1));
+
+            // Коли дуже близько — з’являється спокійний ельф
+            if (dist < 0.5 && elfIdle.classList.contains('hidden')) {
+                elfIdle.classList.remove('hidden');
+                elfIdle.style.background = 'url("elf-idle.png") 0 0 / auto 100% no-repeat';
+                setTimeout(() => elfIdle.style.opacity = 1, 100);
+                sendBtn.textContent = texts[lang].send;
+                sendBtn.style.display = 'block';
+            }
+        }
+        renderer.render(scene, camera);
+    });
+
+    // КНОПКА — ВІДПРАВИТИ ЛИСТ
+    sendBtn.onclick = () => {
+        step = 3;
+        sendBtn.style.display = 'none';
+        elfIdle.style.opacity = 0; // ховаємо спокійного
+
+        // Показуємо ельфа з магією
+        elfMagic.classList.remove('hidden');
+        elfMagic.style.background = 'url("elf-magic.png") 0 0 / auto 100% no-repeat';
+        setTimeout(() => elfMagic.style.opacity = 1, 100);
+
+        speak(texts[lang].sent);
+        hint.textContent = texts[lang].sent;
+
+        // Анімація магії (наприклад 30 кадрів)
+        let magicFrame = 0;
+        const magicAnim = setInterval(() => {
+            magicFrame++;
+            if (magicFrame >= 30) {
+                clearInterval(magicAnim);
+                setTimeout(() => {
+                    elfMagic.style.opacity = 0;
+                    hint.innerHTML = `${texts[lang].sent}<br><br>
+                        <button onclick="location.reload()" style="padding:15px 50px;font-size:1.6em;background:#27ae60;border:none;border-radius:50px;">
+                            ${texts[lang].again}
+                        </button>`;
+                }, 1000);
+            } else {
+                elfMagic.style.backgroundPosition = `0 ${-magicFrame * (100/30)}%`;
+            }
+        }, 80);
+    };
+
+    await mindar.start();
+};
+
+function speak(t) {
+    if ('speechSynthesis' in window) {
+        const u = new SpeechSynthesisUtterance(t);
+        u.lang = lang==='uk' ? 'uk-UA' : 'en-US';
+        speechSynthesis.cancel();
+        speechSynthesis.speak(u);
+    }
+}
+</script>
+</body>
+</html>
