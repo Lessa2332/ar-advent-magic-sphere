@@ -151,4 +151,5 @@ document.getElementById('startBtn').onclick = async () => {
     }, 4000);
   };
 
-};
+}
+
