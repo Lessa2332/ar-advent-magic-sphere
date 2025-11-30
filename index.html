@@ -7,13 +7,13 @@
     <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
     <style>
-        body{margin:0;overflow:hidden;background:#0a1e3a}
+        body{margin:0;overflow:hidden;background:#0a1e3a;font-family:sans-serif}
         #startScreen,#loading{position:fixed;inset:0;background:linear-gradient(135deg,#0f3443,#1e5a7e);
             display:flex;flex-direction:column;justify-content:center;align-items:center;
-            text-align:center;color:white;font-family:sans-serif;z-index:100}
+            text-align:center;color:white;z-index:100}
         h1{font-size:2.8em;color:#ffd700;text-shadow:0 0 20px gold;margin-bottom:20px}
         button{background:#e74c3c;color:white;border:none;padding:18px 50px;font-size:1.6em;
-               border-radius:50px;box-shadow:0 10px 30px rgba(231,76,60,.6);cursor:pointer}
+               border-radius:50px;box-shadow:0 10px 30px rgba(231,76,60,.6);cursor:pointer;transition:.2s}
         button:active{transform:scale(0.95)}
         #hint{position:absolute;top:15px;left:50%;transform:translateX(-50%);
               background:#000000cc;padding:12px 30px;border-radius:20px;font-size:1.7em;
@@ -31,34 +31,35 @@
     <p>Напиши бажання на папері — і віддай його ельфу!</p>
     <button id="startBtn">Почати</button>
 </div>
+
 <div id="loading" class="hidden">Завантаження...</div>
 
 <a-scene id="scene" class="hidden" embedded
          mindar-image="imageTargetSrc: targets.mind; uiLoading:no; uiScanning:no; maxTrack:2"
          vr-mode-ui="enabled:false" renderer="colorManagement:false">
 
-    <a-assets timeout="10000">
+    <a-assets timeout="15000">
         <audio id="waiting" src="waiting.mp3"></audio>
         <audio id="magic" src="magic-sound.mp3"></audio>
         <img id="elfIdle" src="elf-idle.png">
         <img id="elfMagic" src="elf-magic.png">
     </a-assets>
 
-    <a-camera position="0 1.6 0"></a-camera>
+    <a-camera position="0 1.6 0" wasd-controls-enabled="false"></a-camera>
 
-    <div id="hint">Знайди слід ельфа!</div>
+    <div id="hint">Знайди дзвіночок!</div>
     <button id="sendBtn">Відправити лист</button>
 
     <!-- Дзвіночок – тільки логіка -->
     <a-entity mindar-image-target="targetIndex: 0" bell-listener></a-entity>
 
-    <!-- Зірочка – якір -->
+    <!-- Зірочка – якір. Ельф буде збоку/зверху -->
     <a-entity id="starAnchor" mindar-image-target="targetIndex: 1">
 
-        <!-- Ельф стоїть НЕ на маркері, а за координатами нижче -->
-        <a-entity id="elfContainer" position="1.4 1.1 -0.8">   <!-- ← ТУТ МІНЯЙ ПОЗИЦІЮ! -->
+        <!-- ЗМІНЮЙ ЦІ КООРДИНАТИ — і ельф з’явиться де завгодно! -->
+        <a-entity id="elfContainer" position="1.4 1.1 -0.8">
 
-            <!-- Idle ельф + звук чекає листа -->
+            <!-- Ельф чекає листа -->
             <a-entity id="elfIdle" visible="false">
                 <a-plane src="#elfIdle" transparent="true" width="0.8" height="1.6"
                          material="shader: flat; repeat: 1 24"
@@ -68,12 +69,14 @@
                          ref-distance="0.4" max-distance="6" rolloff-factor="2" volume="1"></a-sound>
             </a-entity>
 
-            <!-- Ельф магія + звук -->
+            <!-- Ельф робить магію -->
             <a-entity id="elfMagic" visible="false">
                 <a-plane src="#elfMagic" transparent="true" width="0.8" height="1.6"
-                         material="shader: flat; repeat: 1 36"
-                         animation="property: material.offsetRepeat.y; from:0; to:-35; dur:2880;
-                                   easing:linear; startEvents:magicStart; pauseEvents:magicStop">
+                         material="shader: flat; repeat: 1 36; offsetRepeat: 0 0"
+                         animation="property: material.offsetRepeat.y;
+                                    from: 0; to: -0.972;   <!-- -35/36 -->
+                                    dur: 2880; easing: linear;
+                                    startEvents: playMagic">
                 </a-plane>
                 <a-sound src="#magic" autoplay="false" positional="true"
                          ref-distance="0.3" max-distance="5" volume="1"></a-sound>
@@ -95,24 +98,34 @@
     const magicPlane = elfMagic.querySelector('a-plane');
 
     // Дзвіночок знайшли
-    AFRAME.registerComponent('bell-listener', {init:function(){
-        this.el.addEventListener('targetFound',()=>{if(step===0){step=1;hint.textContent="Чудово! Тепер зірочку!";}});
+    AFRAME.registerComponent('bell-listener', {init: function(){
+        this.el.addEventListener('targetFound', () => {
+            if (step === 0) { step = 1; hint.textContent = "Чудово! Тепер зірочку!"; }
+        });
     }});
 
+    // Розблокування звуку після першої взаємодії
+    document.addEventListener('click', () => {}, {once: true});
+
     document.getElementById('startBtn').onclick = () => {
-        if(location.protocol!=='https:'&&location.hostname!=='localhost') return alert('Тільки HTTPS або localhost!');
+        if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
+            alert('Додаток працює тільки через HTTPS або localhost');
+            return;
+        }
         document.getElementById('startScreen').classList.add('hidden');
         document.getElementById('loading').classList.remove('hidden');
-        setTimeout(()=>{document.getElementById('scene').classList.remove('hidden');
-                       document.getElementById('loading').classList.add('hidden');},800);
+        setTimeout(() => {
+            document.getElementById('scene').classList.remove('hidden');
+            document.getElementById('loading').classList.add('hidden');
+        }, 800);
     };
 
-    // Зірочка знайдена → вмикаємо голос ельфа
+    // Зірочка знайдена → ельф починає кликати
     document.querySelector('#starAnchor').addEventListener('targetFound', () => {
         if (step !== 1) return;
         step = 2;
         hint.textContent = "Я десь поруч… підійди ближче, почуєш!";
-        waitingSound.components.sound.playSound();
+        setTimeout(() => waitingSound.components.sound.playSound(), 300);
     });
 
     // Якщо втратили маркер — ховаємо все
@@ -121,14 +134,22 @@
         elfIdle.setAttribute('visible', false);
     });
 
-    // Відстеження відстані саме до ельфа (не до маркера!)
+    // Відстеження відстані до ельфа + динамічна гучність
     document.querySelector('a-scene').addEventListener('renderstart', () => {
         const camera = document.querySelector('a-camera').object3D;
         const update = () => {
             if (step === 2 && elfContainer.object3D.visible) {
-                const dist = camera.position.distanceTo(
-                    elfContainer.object3D.getWorldPosition(new THREE.Vector3())
-                );
+                const worldPos = new THREE.Vector3();
+                elfContainer.object3D.getWorldPosition(worldPos);
+                const dist = camera.position.distanceTo(worldPos);
+
+                // Динамічна гучність
+                if (waitingSound.components.sound.isPlaying) {
+                    const vol = Math.max(0.1, Math.min(1, 1 - dist/4));
+                    waitingSound.setAttribute('sound', 'volume', vol);
+                }
+
+                // Показуємо ельфа і кнопку тільки коли дуже близько
                 const near = dist < 0.5;
                 elfIdle.setAttribute('visible', near);
                 sendBtn.style.display = near ? 'block' : 'none';
@@ -146,7 +167,7 @@
 
         elfMagic.setAttribute('visible', true);
         magicSound.components.sound.playSound();
-        magicPlane.emit('magicStart');   // ← запускаємо анімацію надійно
+        magicPlane.emit('playMagic');
 
         hint.innerHTML = "Я передав твоє бажання Санті!<br>Вітаю з Різдвом!";
 
@@ -157,7 +178,7 @@
             btn.style.cssText = 'margin-top:20px;padding:15px 50px;font-size:1.6em;background:#27ae60;border:none;border-radius:50px;cursor:pointer';
             btn.onclick = () => location.reload();
             hint.appendChild(btn);
-        }, 3400); // трохи більше за тривалість анімації + звук
+        }, 4000);
     };
 </script>
 </body>
