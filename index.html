@@ -5,9 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Передай лист Санті</title>
     
-    <!-- MindAR 3.0 + Three.js (CSP-safe версії) -->
-    <script src="https://cdn.jsdelivr.net/npm/mind-ar@3.1.5/dist/mindar-image-three.prod.js"></script>
-    
+    <!-- Three.js без eval -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- WebXR -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/webxr/VRButton.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/webxr/ARButton.js"></script>
+
     <style>
         body {
             margin: 0;
@@ -148,6 +151,10 @@
             #hint { font-size: 1.2em; padding: 12px 20px; }
             .start-button, #sendBtn { font-size: 1.2em; padding: 15px 40px; }
         }
+
+        canvas {
+            display: block;
+        }
     </style>
 </head>
 <body>
@@ -173,9 +180,12 @@
     class SantaLetterAR {
         constructor() {
             this.step = 0;
-            this.engine = null;
             this.scene = null;
+            this.camera = null;
+            this.renderer = null;
             this.elf = null;
+            this.bell = null;
+            this.star = null;
             this.isElfNear = false;
             
             this.hint = document.getElementById('hint');
@@ -183,12 +193,24 @@
             this.startBtn = document.getElementById('startBtn');
             this.arContainer = document.getElementById('arContainer');
             
+            // Позиції маркерів (імітація AR)
+            this.markers = {
+                bell: { position: new THREE.Vector3(-2, 0.5, -3), found: false },
+                star: { position: new THREE.Vector3(2, 0.5, -3), found: false }
+            };
+            
             this.initEventListeners();
         }
         
         initEventListeners() {
             this.startBtn.addEventListener('click', () => this.startAR());
             this.sendBtn.addEventListener('click', () => this.sendLetter());
+            
+            // Додаємо ручне керування для тестування
+            document.addEventListener('keydown', (event) => {
+                if (event.key === '1') this.foundBell();
+                if (event.key === '2') this.foundStar();
+            });
         }
         
         async startAR() {
@@ -196,87 +218,89 @@
             document.getElementById('loading').classList.remove('hidden');
             
             try {
-                await this.initializeAR();
+                await this.initializeScene();
                 document.getElementById('loading').classList.add('hidden');
             } catch (error) {
-                console.error('Помилка ініціалізації AR:', error);
-                this.hint.textContent = 'Помилка завантаження AR. Перезавантаж сторінку.';
+                console.error('Помилка ініціалізації:', error);
+                this.hint.textContent = 'Помилка завантаження. Перевірте дозвіл камери.';
+                document.getElementById('loading').classList.add('hidden');
             }
         }
         
-        async initializeAR() {
-            // Ініціалізація MindAR
-            this.engine = new MindARThree.ImageTargetEngine({
-                imageTargetSrc: 'https://raw.githubusercontent.com/hiukim/mind-ar-js/master/examples/image-tracking/assets/card-example/card.mind',
-                maxTrack: 2,
-                filterMinCF: 0.001,
-                filterBeta: 1000,
+        async initializeScene() {
+            // Створення сцени
+            this.scene = new THREE.Scene();
+            this.scene.background = new THREE.Color(0x0a1e3a);
+            
+            // Камера
+            this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            this.camera.position.set(0, 1.6, 0);
+            
+            // Рендерер
+            this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            this.renderer.setSize(window.innerWidth, window.innerHeight);
+            this.renderer.xr.enabled = true;
+            this.arContainer.appendChild(this.renderer.domElement);
+            
+            // Додавання кнопки AR
+            const arButton = ARButton.createButton(this.renderer, { 
+                requiredFeatures: ['hit-test'],
+                optionalFeatures: ['dom-overlay'],
+                domOverlay: { root: document.body }
             });
+            document.body.appendChild(arButton);
             
-            const { renderer, scene, camera } = await this.engine.setupScene();
-            this.scene = scene;
-            this.renderer = renderer;
-            this.camera = camera;
+            // Освітлення
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            this.scene.add(ambientLight);
             
-            this.arContainer.appendChild(renderer.domElement);
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(5, 10, 7);
+            this.scene.add(directionalLight);
             
-            // Створення 3D об'єктів
-            this.create3DObjects();
+            // Створення об'єктів
+            this.createObjects();
             
-            // Запуск рендерингу
-            this.startRendering();
+            // Запуск анімації
+            this.startAnimation();
+            
+            // Обробник зміни розміру
+            window.addEventListener('resize', () => this.onWindowResize());
         }
         
-        create3DObjects() {
-            // Дзвіночок (Target 0)
+        createObjects() {
+            // Дзвіночок
             const bellGeometry = new THREE.SphereGeometry(0.3, 16, 16);
             const bellMaterial = new THREE.MeshPhongMaterial({ 
                 color: 0xffd700,
                 transparent: true,
-                opacity: 0.8
+                opacity: 0
             });
-            const bell = new THREE.Mesh(bellGeometry, bellMaterial);
+            this.bell = new THREE.Mesh(bellGeometry, bellMaterial);
+            this.bell.position.copy(this.markers.bell.position);
+            this.scene.add(this.bell);
             
-            const bellAnchor = this.engine.createImageTargetAnchor(0);
-            bellAnchor.group.add(bell);
-            this.scene.add(bellAnchor.group);
-            
-            bellAnchor.onTargetFound = () => {
-                if (this.step === 0) {
-                    this.step = 1;
-                    this.hint.textContent = "Чудово! Тепер знайди зірочку!";
-                }
-            };
-            
-            // Зірочка та ельф (Target 1)
+            // Зірочка
             const starGeometry = new THREE.ConeGeometry(0.2, 0.4, 4);
             const starMaterial = new THREE.MeshPhongMaterial({ 
                 color: 0xffffff,
                 transparent: true,
-                opacity: 0.9
+                opacity: 0
             });
-            const star = new THREE.Mesh(starGeometry, starMaterial);
+            this.star = new THREE.Mesh(starGeometry, starMaterial);
+            this.star.position.copy(this.markers.star.position);
+            this.scene.add(this.star);
             
-            // Створення ельфа (проста 3D фігурка)
-            this.createElf();
+            // Ельф
+            this.elf = this.createElf();
+            this.elf.position.set(3.4, 0.5, -3.8);
+            this.elf.visible = false;
+            this.scene.add(this.elf);
             
-            const starAnchor = this.engine.createImageTargetAnchor(1);
-            starAnchor.group.add(star);
-            starAnchor.group.add(this.elf);
-            this.scene.add(starAnchor.group);
-            
-            starAnchor.onTargetFound = () => {
-                if (this.step === 1) {
-                    this.step = 2;
-                    this.hint.textContent = "Я тут! Підійди ближче до ельфа!";
-                    this.startElfAnimation();
-                }
-            };
-            
-            starAnchor.onTargetLost = () => {
-                this.sendBtn.style.display = 'none';
-                this.isElfNear = false;
-            };
+            // Інструкція для тесту
+            console.log('Для тестування натисніть:');
+            console.log('1 - знайти дзвіночок');
+            console.log('2 - знайти зірочку');
         }
         
         createElf() {
@@ -298,57 +322,89 @@
             hat.position.y = 0.3;
             head.add(hat);
             
-            this.elf = new THREE.Group();
-            this.elf.add(body);
-            this.elf.add(head);
-            this.elf.visible = false;
-            this.elf.position.set(1.4, 0.5, -0.8);
+            const elf = new THREE.Group();
+            elf.add(body);
+            elf.add(head);
             
-            return this.elf;
+            return elf;
         }
         
-        startElfAnimation() {
+        startAnimation() {
             const animate = () => {
-                if (this.step === 2 && this.elf.visible) {
-                    // Анімація плавного хиттання
-                    this.elf.rotation.y = Math.sin(Date.now() * 0.002) * 0.1;
-                    this.elf.position.y = 0.5 + Math.sin(Date.now() * 0.003) * 0.05;
+                if (this.renderer) {
+                    this.renderer.render(this.scene, this.camera);
                     
-                    // Перевірка відстані до камери
-                    this.checkCameraDistance();
+                    // Анімація об'єктів
+                    if (this.bell) this.bell.rotation.y += 0.02;
+                    if (this.star) this.star.rotation.y += 0.01;
+                    if (this.elf && this.elf.visible) {
+                        this.elf.rotation.y += 0.02;
+                        this.elf.position.y = 0.5 + Math.sin(Date.now() * 0.003) * 0.05;
+                    }
+                    
+                    // Перевірка відстаней (імітація AR)
+                    this.checkDistances();
                 }
-                requestAnimationFrame(animate);
+                requestAnimationFrame(() => animate());
             };
             animate();
         }
         
-        checkCameraDistance() {
-            if (!this.elf.visible) return;
+        checkDistances() {
+            const cameraPos = this.camera.position;
             
-            const elfPosition = new THREE.Vector3();
-            this.elf.getWorldPosition(elfPosition);
+            // Перевірка дзвіночка
+            if (!this.markers.bell.found && cameraPos.distanceTo(this.markers.bell.position) < 1.5) {
+                this.foundBell();
+            }
             
-            const distance = this.camera.position.distanceTo(elfPosition);
-            const isNear = distance < 1.5;
+            // Перевірка зірочки
+            if (!this.markers.star.found && cameraPos.distanceTo(this.markers.star.position) < 1.5) {
+                this.foundStar();
+            }
             
-            if (isNear && !this.isElfNear) {
-                this.isElfNear = true;
-                this.sendBtn.style.display = 'block';
-                this.hint.textContent = "Натисни кнопку, щоб передати лист!";
-            } else if (!isNear && this.isElfNear) {
-                this.isElfNear = false;
-                this.sendBtn.style.display = 'none';
-                this.hint.textContent = "Підійди ближче до ельфа!";
+            // Перевірка близькості до ельфа
+            if (this.step === 2 && this.elf && this.elf.visible) {
+                const distance = cameraPos.distanceTo(this.elf.position);
+                const isNear = distance < 1.5;
+                
+                if (isNear && !this.isElfNear) {
+                    this.isElfNear = true;
+                    this.sendBtn.style.display = 'block';
+                    this.hint.textContent = "Натисни кнопку, щоб передати лист!";
+                } else if (!isNear && this.isElfNear) {
+                    this.isElfNear = false;
+                    this.sendBtn.style.display = 'none';
+                    this.hint.textContent = "Підійди ближче до ельфа!";
+                }
             }
         }
         
-        startRendering() {
-            const render = () => {
-                this.engine.update();
-                this.renderer.render(this.scene, this.camera);
-                requestAnimationFrame(render);
-            };
-            render();
+        foundBell() {
+            if (this.step === 0) {
+                this.markers.bell.found = true;
+                this.bell.material.opacity = 1;
+                this.step = 1;
+                this.hint.textContent = "Чудово! Тепер знайди зірочку!";
+            }
+        }
+        
+        foundStar() {
+            if (this.step === 1) {
+                this.markers.star.found = true;
+                this.star.material.opacity = 1;
+                this.elf.visible = true;
+                this.step = 2;
+                this.hint.textContent = "Я тут! Підійди ближче до ельфа!";
+            }
+        }
+        
+        onWindowResize() {
+            if (this.camera && this.renderer) {
+                this.camera.aspect = window.innerWidth / window.innerHeight;
+                this.camera.updateProjectionMatrix();
+                this.renderer.setSize(window.innerWidth, window.innerHeight);
+            }
         }
         
         sendLetter() {
@@ -367,8 +423,10 @@
         }
         
         playMagicAnimation() {
+            if (!this.elf) return;
+            
             // Створення частинок магії
-            const particleCount = 50;
+            const particleCount = 30;
             const particles = new THREE.BufferGeometry();
             const positions = new Float32Array(particleCount * 3);
             
@@ -387,9 +445,7 @@
             });
             
             const particleSystem = new THREE.Points(particles, particleMaterial);
-            if (this.elf) {
-                this.elf.parent.add(particleSystem);
-            }
+            this.elf.add(particleSystem);
             
             // Анімація зникнення частинок
             let opacity = 1;
@@ -400,7 +456,7 @@
                 if (opacity > 0) {
                     requestAnimationFrame(fadeOut);
                 } else {
-                    this.scene.remove(particleSystem);
+                    this.elf.remove(particleSystem);
                 }
             };
             fadeOut();
@@ -416,7 +472,7 @@
         }
     }
     
-    // Ініціалізація додатку при завантаженні сторінки
+    // Ініціалізація додатку
     document.addEventListener('DOMContentLoaded', () => {
         new SantaLetterAR();
     });
