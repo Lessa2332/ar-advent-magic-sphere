@@ -99,6 +99,32 @@
             padding: 20px;
             border-radius: 10px;
         }
+
+        /* Стилі для UI ельфів */
+        .elf-ui {
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 85vw;
+            max-width: 400px;
+            height: 75vh;
+            pointer-events: none;
+            z-index: 5;
+            opacity: 0;
+            transition: opacity 1.3s ease;
+        }
+        
+        .elf-sprite {
+            width: 100%;
+            height: 100%;
+            background-size: 100% auto;
+            background-repeat: no-repeat;
+            background-position: center bottom;
+        }
+        
+        #elfIdleUI { z-index: 5; }
+        #elfMagicUI { z-index: 6; }
     </style>
 </head>
 <body>
@@ -111,18 +137,74 @@
 <div id="arContainer" class="hidden">
     <div id="hint">Знайди дзвіночок!</div>
     <button id="sendBtn">Відправити лист</button>
+    
+    <!-- UI ельфи для анімацій -->
+    <div id="elfIdleUI" class="elf-ui hidden">
+        <div class="elf-sprite"></div>
+    </div>
+    <div id="elfMagicUI" class="elf-ui hidden">
+        <div class="elf-sprite"></div>
+    </div>
 </div>
 
 <div id="loading" class="loading hidden">Завантаження...</div>
 
 <script>
+    // Реєстрація кастомного компонента для спрайт-анімації
+    AFRAME.registerComponent('sprite-animation', {
+        schema: {
+            rows: {type: 'int', default: 1},
+            columns: {type: 'int', default: 1},
+            frameCount: {type: 'int', default: 1},
+            frameRate: {type: 'number', default: 24},
+            loop: {type: 'boolean', default: true}
+        },
+        
+        init: function () {
+            this.currentFrame = 0;
+            this.frameTime = 1000 / this.data.frameRate;
+            this.lastUpdate = 0;
+            this.material = this.el.getObject3D('mesh').material;
+            this.frameWidth = 1 / this.data.columns;
+            this.frameHeight = 1 / this.data.rows;
+        },
+        
+        tick: function (time, timeDelta) {
+            if (!this.material || !this.material.map) return;
+            
+            if (time - this.lastUpdate > this.frameTime) {
+                this.currentFrame++;
+                if (this.currentFrame >= this.data.frameCount) {
+                    if (this.data.loop) {
+                        this.currentFrame = 0;
+                    } else {
+                        this.currentFrame = this.data.frameCount - 1;
+                        return;
+                    }
+                }
+                
+                const col = this.currentFrame % this.data.columns;
+                const row = Math.floor(this.currentFrame / this.data.columns);
+                
+                const offsetX = col * this.frameWidth;
+                const offsetY = 1 - (row + 1) * this.frameHeight;
+                
+                this.material.map.offset.set(offsetX, offsetY);
+                this.material.map.repeat.set(this.frameWidth, this.frameHeight);
+                
+                this.lastUpdate = time;
+            }
+        }
+    });
+
     let step = 0;
     const hint = document.getElementById('hint');
     const sendBtn = document.getElementById('sendBtn');
     const loading = document.getElementById('loading');
+    const elfIdleUI = document.getElementById('elfIdleUI');
+    const elfMagicUI = document.getElementById('elfMagicUI');
 
     document.getElementById('startBtn').addEventListener('click', async () => {
-        // Перевірка на HTTPS
         if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
             alert('Цей додаток працює лише через HTTPS або localhost.');
             return;
@@ -145,7 +227,7 @@
             const assets = document.createElement('a-assets');
             assets.setAttribute('timeout', '30000');
             
-            // Додаємо аудіо
+            // Аудіо
             const waitingAudio = document.createElement('audio');
             waitingAudio.setAttribute('id', 'waiting-sound');
             waitingAudio.setAttribute('src', 'waiting.mp3');
@@ -158,7 +240,7 @@
             magicAudio.setAttribute('preload', 'auto');
             assets.appendChild(magicAudio);
             
-            // Додаємо зображення для анімацій
+            // Текстури для 3D ельфів
             const elfIdleImg = document.createElement('img');
             elfIdleImg.setAttribute('id', 'elf-idle-img');
             elfIdleImg.setAttribute('src', 'elf-idle.png');
@@ -171,41 +253,51 @@
             
             sceneEl.appendChild(assets);
 
-            // Додаємо камеру
+            // Камера
             const camera = document.createElement('a-camera');
             camera.setAttribute('position', '0 1.6 0');
             camera.setAttribute('wasd-controls', 'enabled: false');
             sceneEl.appendChild(camera);
 
-            // Перший маркер — дзвіночок
+            // Маркери
             const anchor1 = document.createElement('a-entity');
             anchor1.setAttribute('mindar-image-target', 'targetIndex: 0');
             sceneEl.appendChild(anchor1);
 
-            // Другий маркер — зірочка з ельфом
             const anchor2 = document.createElement('a-entity');
             anchor2.setAttribute('mindar-image-target', 'targetIndex: 1');
             sceneEl.appendChild(anchor2);
 
-            // Створюємо ельфа (3D об'єкт) на другому маркері
+            // 3D ельф на другому маркері
             const elfContainer = document.createElement('a-entity');
-            elfContainer.setAttribute('position', '1.4 1.1 -0.8'); // Правильна позиція в 3D просторі
+            elfContainer.setAttribute('position', '1.4 1.1 -0.8');
             elfContainer.setAttribute('visible', 'false');
             
-            // Ельф в режимі очікування (idle)
-            const elfIdle = document.createElement('a-entity');
-            elfIdle.setAttribute('id', 'elf-idle-3d');
-            elfIdle.setAttribute('visible', 'false');
+            // Простий 3D ельф (куб замість спрайта)
+            const elfGeometry = document.createElement('a-box');
+            elfGeometry.setAttribute('color', '#00FF00');
+            elfGeometry.setAttribute('width', '0.3');
+            elfGeometry.setAttribute('height', '0.6');
+            elfGeometry.setAttribute('depth', '0.3');
+            elfGeometry.setAttribute('position', '0 0.3 0');
+            elfContainer.appendChild(elfGeometry);
             
-            const elfPlane = document.createElement('a-plane');
-            elfPlane.setAttribute('src', '#elf-idle-img');
-            elfPlane.setAttribute('transparent', 'true');
-            elfPlane.setAttribute('width', '0.8');
-            elfPlane.setAttribute('height', '1.6');
-            elfPlane.setAttribute('material', 'shader: flat; repeat: 1 24');
-            elfPlane.setAttribute('animation', 'property: material.offsetRepeat.y; from: 0; to: -23; dur: 2880; loop: true');
-            elfIdle.appendChild(elfPlane);
+            // Голова ельфа
+            const elfHead = document.createElement('a-sphere');
+            elfHead.setAttribute('color', '#FFCC99');
+            elfHead.setAttribute('radius', '0.15');
+            elfHead.setAttribute('position', '0 0.6 0');
+            elfContainer.appendChild(elfHead);
             
+            // Капелюх
+            const elfHat = document.createElement('a-cone');
+            elfHat.setAttribute('color', '#FF0000');
+            elfHat.setAttribute('radius-bottom', '0.2');
+            elfHat.setAttribute('radius-top', '0.05');
+            elfHat.setAttribute('height', '0.3');
+            elfHat.setAttribute('position', '0 0.8 0');
+            elfContainer.appendChild(elfHat);
+
             // Звук очікування
             const waitingSound3d = document.createElement('a-sound');
             waitingSound3d.setAttribute('src', '#waiting-sound');
@@ -216,37 +308,11 @@
             waitingSound3d.setAttribute('max-distance', '6');
             waitingSound3d.setAttribute('rolloff-factor', '2');
             waitingSound3d.setAttribute('volume', '1');
-            elfIdle.appendChild(waitingSound3d);
+            elfContainer.appendChild(waitingSound3d);
             
-            // Ельф в магічному режимі
-            const elfMagic = document.createElement('a-entity');
-            elfMagic.setAttribute('id', 'elf-magic-3d');
-            elfMagic.setAttribute('visible', 'false');
-            
-            const magicPlane = document.createElement('a-plane');
-            magicPlane.setAttribute('src', '#elf-magic-img');
-            magicPlane.setAttribute('transparent', 'true');
-            magicPlane.setAttribute('width', '0.8');
-            magicPlane.setAttribute('height', '1.6');
-            magicPlane.setAttribute('material', 'shader: flat; repeat: 1 36');
-            magicPlane.setAttribute('animation', 'property: material.offsetRepeat.y; from: 0; to: -35; dur: 2880; easing: linear; startEvents: playMagic');
-            elfMagic.appendChild(magicPlane);
-            
-            // Звук магії
-            const magicSound3d = document.createElement('a-sound');
-            magicSound3d.setAttribute('src', '#magic-sound');
-            magicSound3d.setAttribute('autoplay', 'false');
-            magicSound3d.setAttribute('positional', 'true');
-            magicSound3d.setAttribute('ref-distance', '0.3');
-            magicSound3d.setAttribute('max-distance', '5');
-            magicSound3d.setAttribute('volume', '1');
-            elfMagic.appendChild(magicSound3d);
-            
-            elfContainer.appendChild(elfIdle);
-            elfContainer.appendChild(elfMagic);
             anchor2.appendChild(elfContainer);
 
-            // Обробники подій для маркерів
+            // Обробники подій
             anchor1.addEventListener('targetFound', () => {
                 if (step === 0) {
                     step = 1;
@@ -260,7 +326,6 @@
                     hint.textContent = "Я десь поруч… підійди ближче, почуєш!";
                     elfContainer.setAttribute('visible', 'true');
                     
-                    // Запускаємо звук очікування
                     setTimeout(() => {
                         const soundComp = waitingSound3d.components.sound;
                         if (soundComp && !soundComp.isPlaying) {
@@ -273,16 +338,15 @@
             anchor2.addEventListener('targetLost', () => {
                 sendBtn.style.display = 'none';
                 elfContainer.setAttribute('visible', 'false');
-                elfIdle.setAttribute('visible', 'false');
+                elfIdleUI.classList.add('hidden');
                 
-                // Зупиняємо звук
                 const soundComp = waitingSound3d.components.sound;
                 if (soundComp && soundComp.isPlaying) {
                     soundComp.stopSound();
                 }
             });
 
-            // Відстеження відстані до ельфа
+            // Відстеження відстані
             sceneEl.addEventListener('renderstart', () => {
                 const cameraObj = document.querySelector('a-camera').object3D;
                 
@@ -293,21 +357,27 @@
                         
                         const dist = cameraObj.position.distanceTo(elfPos);
 
-                        // Оновлюємо гучність звуку
+                        // Гучність звуку
                         const soundComp = waitingSound3d.components.sound;
                         if (soundComp && soundComp.isPlaying) {
                             const volume = Math.max(0.1, Math.min(1, 1 - dist/4));
                             waitingSound3d.setAttribute('sound', 'volume', volume);
                         }
 
-                        // Показуємо ельфа та кнопку при близькій відстані
+                        // Показ UI ельфа при близькій відстані
                         const isNear = dist < 0.5;
-                        elfIdle.setAttribute('visible', isNear);
-                        sendBtn.style.display = isNear ? 'block' : 'none';
-                        
                         if (isNear) {
+                            if (elfIdleUI.classList.contains('hidden')) {
+                                elfIdleUI.classList.remove('hidden');
+                                elfIdleUI.querySelector('.elf-sprite').style.backgroundImage = 'url("elf-idle.png")';
+                                setTimeout(() => elfIdleUI.style.opacity = '1', 100);
+                            }
+                            sendBtn.style.display = 'block';
                             hint.textContent = "Натисни кнопку, щоб передати лист!";
                         } else {
+                            elfIdleUI.style.opacity = '0';
+                            setTimeout(() => elfIdleUI.classList.add('hidden'), 1300);
+                            sendBtn.style.display = 'none';
                             hint.textContent = "Підійди ближче до ельфа!";
                         }
                     }
@@ -316,39 +386,66 @@
                 update();
             });
 
-            // Обробник відправки листа
+            // Анімація idle ельфа
+            let idleFrame = 0;
+            const idleInterval = setInterval(() => {
+                if (parseFloat(elfIdleUI.style.opacity) > 0) {
+                    idleFrame = (idleFrame + 1) % 24;
+                    elfIdleUI.querySelector('.elf-sprite').style.backgroundPosition = `center ${-idleFrame * (100 / 24)}%`;
+                }
+            }, 120);
+
+            // Обробник відправки
             sendBtn.addEventListener('click', () => {
                 step = 3;
                 sendBtn.style.display = 'none';
-                elfIdle.setAttribute('visible', 'false');
+                elfIdleUI.style.opacity = '0';
                 
-                // Зупиняємо звук очікування
+                // Зупиняємо звук та анімацію
                 const waitingSoundComp = waitingSound3d.components.sound;
                 if (waitingSoundComp && waitingSoundComp.isPlaying) {
                     waitingSoundComp.stopSound();
                 }
+                clearInterval(idleInterval);
                 
-                // Запускаємо магічну анімацію
-                elfMagic.setAttribute('visible', 'true');
+                // Магічна анімація
+                elfMagicUI.classList.remove('hidden');
+                elfMagicUI.querySelector('.elf-sprite').style.backgroundImage = 'url("elf-magic.png")';
                 
-                const magicSoundComp = magicSound3d.components.sound;
-                if (magicSoundComp) {
-                    magicSoundComp.playSound();
-                }
-                
-                magicPlane.emit('playMagic');
-                
-                hint.innerHTML = "Я передав твоє бажання Санті!<br>Вітаю з Різдвом!";
-
                 setTimeout(() => {
-                    elfMagic.setAttribute('visible', 'false');
+                    elfMagicUI.style.opacity = '1';
                     
-                    const restartBtn = document.createElement('button');
-                    restartBtn.textContent = 'Заново';
-                    restartBtn.style.cssText = 'margin-top:20px;padding:15px 50px;font-size:1.6em;background:#27ae60;border:none;border-radius:50px;cursor:pointer';
-                    restartBtn.addEventListener('click', () => location.reload());
-                    hint.appendChild(restartBtn);
-                }, 4000);
+                    // Відтворюємо звук магії
+                    const magicAudio = new Audio('magic-sound.mp3');
+                    magicAudio.volume = 0.9;
+                    magicAudio.play();
+                }, 100);
+                
+                hint.textContent = "Я передав твоє бажання Санті! Вітаю з Різдвом!";
+                
+                // Анімація магії
+                let magicFrame = 0;
+                const magicInterval = setInterval(() => {
+                    magicFrame++;
+                    if (magicFrame >= 36) {
+                        clearInterval(magicInterval);
+                        setTimeout(() => {
+                            elfMagicUI.style.opacity = '0';
+                            setTimeout(() => {
+                                elfMagicUI.classList.add('hidden');
+                                hint.innerHTML = 'Я передав твоє бажання Санті!<br><br>';
+                               
+                                const restartBtn = document.createElement('button');
+                                restartBtn.textContent = 'Заново';
+                                restartBtn.style.cssText = 'margin-top:20px;padding:15px 50px;font-size:1.6em;background:#27ae60;border:none;border-radius:50px;cursor:pointer';
+                                restartBtn.addEventListener('click', () => location.reload());
+                                hint.appendChild(restartBtn);
+                            }, 1200);
+                        }, 500);
+                    } else {
+                        elfMagicUI.querySelector('.elf-sprite').style.backgroundPosition = `center ${-magicFrame * (100 / 36)}%`;
+                    }
+                }, 80);
             });
 
             loading.classList.add('hidden');
